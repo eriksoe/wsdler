@@ -22,8 +22,25 @@
           types=[]
          }).
 
--record(simpleType, {}).
+%% Simpletype choices:
+-record(simpleRestriction,
+        {base,
+         patterns=[],
+         enumeration=[],
+         minLength=0,
+         maxLength=infinity,
+         minValue=undefined, % {Value,Inclusive}
+         maxValue=undefined, % {Value,Inclusive}
+         fractionDigits=undefined,
+         totalDigits=undefined
+        }).
+-record(simpleList, {}).
+-record(simpleUnion, {}).
+-type(simpleDerivation() :: #simpleRestriction{} | #simpleList{} | #simpleUnion{}).
+
+-record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(complexType, {}).
+-record(element, {name :: _, type :: #simpleType{}}).
 
 main(File) ->
     dom_parse(File),
@@ -74,14 +91,64 @@ process_schema_children({{xsd,"element"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
     [{TgtNS,TypeName,dummy} | Acc];
-process_schema_children({{xsd,"simpleType"}, Attrs, _Children}, Acc, TgtNS) ->
+process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
+    Type = process_simpleType_children(Children),
+    io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
     [{TgtNS,TypeName,dummy} | Acc];
 process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
     [{TgtNS,TypeName,dummy} | Acc].
+
+
+process_simpleType_children([{{xsd,"annotation"}, _, _} | Rest]) ->
+    process_simpleType_children(Rest);
+process_simpleType_children([{{xsd,"restriction"}, Attrs, Children}]) ->
+    BaseType = attribute("base", Attrs),
+    lists:foldl(fun process_restriction_children/2,
+                #simpleRestriction{base=BaseType},
+                Children);
+process_simpleType_children([{{xsd,"list"}, _Attrs, _Children}]) ->
+    dummy;
+process_simpleType_children([{{xsd,"union"}, _Attrs, _Children}]) ->
+    dummy.
+
+process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    EnumValue = attribute("value", Attrs),
+    R#simpleRestriction{enumeration=[EnumValue | R#simpleRestriction.enumeration]};
+process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    Pattern = attribute("value", Attrs),
+    R#simpleRestriction{patterns=[Pattern | R#simpleRestriction.patterns]};
+process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #simpleRestriction{minLength=Old}=R) ->
+    Length = list_to_integer(attribute("value", Attrs)),
+    R#simpleRestriction{minLength=max(Old,Length)};
+process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #simpleRestriction{maxLength=Old}=R) ->
+    Length = list_to_integer(attribute("value", Attrs)),
+    R#simpleRestriction{maxLength=min(Old,Length)};
+process_restriction_children({{xsd, "length"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    Length = list_to_integer(attribute("value", Attrs)),
+    R#simpleRestriction{minLength=Length, maxLength=Length};
+process_restriction_children({{xsd, "minExclusive"}, Attrs, _Children}, #simpleRestriction{minValue=undefined}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{minValue={Value,false}};
+process_restriction_children({{xsd, "minInclusive"}, Attrs, _Children}, #simpleRestriction{minValue=undefined}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{minValue={Value,true}};
+process_restriction_children({{xsd, "maxExclusive"}, Attrs, _Children}, #simpleRestriction{maxValue=undefined}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{maxValue={Value,false}};
+process_restriction_children({{xsd, "maxInclusive"}, Attrs, _Children}, #simpleRestriction{maxValue=undefined}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{maxValue={Value,true}};
+process_restriction_children({{xsd, "fractionDigits"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{fractionDigits=Value};
+process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    Value = attribute("value", Attrs),
+    R#simpleRestriction{totalDigits=Value}.
+
+%%%====================
 
 attribute(AName, Attrs) ->
     case lists:keyfind({"", AName}, 1, Attrs) of
