@@ -1,0 +1,4 @@
+*~
+*.wsdl
+/ebin
+/deps
