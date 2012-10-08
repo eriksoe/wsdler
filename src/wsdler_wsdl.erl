@@ -27,8 +27,8 @@
         {base,
          patterns=[],
          enumeration=[],
-         minLength=0,
-         maxLength=infinity,
+         minLength=undefined,
+         maxLength=undefined,
          minValue=undefined, % {Value,Inclusive}
          maxValue=undefined, % {Value,Inclusive}
          fractionDigits=undefined,
@@ -127,19 +127,19 @@ process_simpleType_children([{{xsd,"union"}, Attrs, Children}]) ->
     end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
-process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
-    R#simpleRestriction{enumeration=[EnumValue | R#simpleRestriction.enumeration]};
-process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    R#simpleRestriction{enumeration=[EnumValue | EVs]};
+process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{patterns=Ps}=R) ->
     Pattern = attribute("value", Attrs),
-    R#simpleRestriction{patterns=[Pattern | R#simpleRestriction.patterns]};
-process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #simpleRestriction{minLength=Old}=R) ->
+    R#simpleRestriction{patterns=[Pattern | Ps]};
+process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #simpleRestriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    R#simpleRestriction{minLength=max(Old,Length)};
-process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #simpleRestriction{maxLength=Old}=R) ->
+    R#simpleRestriction{minLength=Length};
+process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #simpleRestriction{maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    R#simpleRestriction{maxLength=min(Old,Length)};
-process_restriction_children({{xsd, "length"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    R#simpleRestriction{maxLength=Length};
+process_restriction_children({{xsd, "length"}, Attrs, _Children}, #simpleRestriction{minLength=undefined, maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#simpleRestriction{minLength=Length, maxLength=Length};
 process_restriction_children({{xsd, "minExclusive"}, Attrs, _Children}, #simpleRestriction{minValue=undefined}=R) ->
