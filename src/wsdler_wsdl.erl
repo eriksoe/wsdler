@@ -64,10 +64,9 @@ symbolic_name(Name, NS,       _) -> {NS, Name}.
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
     lists:foldl(fun process_defs_children/2, #definitions{}, Children).
 
-process_defs_children({{wsdl, "types"}, _Attrs, Children}, Acc) ->
-%%     io:format("DB| types: child count=~p\n", [length(Children)]),
-    lists:foldl(fun process_types_children/2, Acc, Children);
-%%     [types|Acc];
+process_defs_children({{wsdl, "types"}, _Attrs, Children}, #definitions{}=Acc) ->
+    Types = lists:foldl(fun process_types_children/2, [], Children),
+    Acc#definitions{types = Types++Acc#definitions.types};
 process_defs_children({{wsdl, "message"}, _Attrs, _Children}, Acc) ->
     [{message,_Attrs}|Acc];
 process_defs_children({{wsdl, "portType"}, _Attrs, _Children}, Acc) ->
@@ -79,37 +78,46 @@ process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
 
 process_types_children({{xsd,"schema"}, Attrs, Children}, Acc) ->
     TgtNS = attribute("targetNamespace", Attrs),
-    lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
-                Acc,
-                Children),
-    Acc. %TODO
+    Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
+                        Acc,
+                        Children),
+    Types.
 
 process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
     io:format("DB| import: ~p\n", [_Attrs]),
     Acc;
-process_schema_children({{xsd,"element"}, Attrs, _Children}, Acc, TgtNS) ->
+process_schema_children({{xsd,"element"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    [{TgtNS,TypeName,dummy} | Acc];
+    TypeContent =
+        case strip_annotations(Children) of
+            [{{xsd,"complexType"},_,_}] -> {complexType, 'TODO'};
+            [{{xsd,"simpleType"},_,_}] -> {simpleType, 'TODO'};
+            [] -> {simpleType, {name,attribute("type",Attrs)}}
+        end,
+    Type = #element{name={TgtNS, TypeName}, type=TypeContent},
+    io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
+    [{{TgtNS,TypeName},Type} | Acc];
 process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     Type = process_simpleType_children(Children),
     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
-    [{TgtNS,TypeName,Type} | Acc];
+    [{{TgtNS,TypeName},Type} | Acc];
 process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    [{TgtNS,TypeName,dummy} | Acc].
+    [{{TgtNS,TypeName},dummy} | Acc].
 
 
-process_simpleType_children([{{xsd,"annotation"}, _, _} | Rest]) ->
-    process_simpleType_children(Rest);
-process_simpleType_children([{{xsd,"restriction"}, Attrs, Children}]) ->
+process_simpleType_children(L) ->
+    [SimpleTypeChildElement] = strip_annotations(L),
+    process_simpleType(SimpleTypeChildElement).
+
+process_simpleType({{xsd,"restriction"}, Attrs, Children}) ->
     BaseType = attribute("base", Attrs),
     lists:foldl(fun process_restriction_children/2,
                 #simpleRestriction{base=BaseType},
                 Children);
-process_simpleType_children([{{xsd,"list"}, Attrs, Children}]) ->
+process_simpleType({{xsd,"list"}, Attrs, Children}) ->
     case [X || X={{xsd,"simpleType"},_,_} <- Children] of
         [] ->
             ItemType = {named,attribute("itemType", Attrs)};
@@ -117,13 +125,14 @@ process_simpleType_children([{{xsd,"list"}, Attrs, Children}]) ->
             ItemType = process_simpleType_children(ItemTypeElement)
     end,
     #simpleListType{itemType=ItemType};
-process_simpleType_children([{{xsd,"union"}, Attrs, Children}]) ->
+process_simpleType({{xsd,"union"}, Attrs, Children}) ->
     case [X || X={{xsd,"simpleType"},_,_} <- Children] of
         [] ->
             MemberTypes = [{named,X}
                            || X<-list_attribute("memberTypes", Attrs)];
         MemberTypeElements ->
-            MemberTypes = [process_simpleType_children(X) || X <-MemberTypeElements]
+            MemberTypes = [process_simpleType_children(strip_annotations(X))
+                           || X <-MemberTypeElements]
     end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
@@ -160,6 +169,11 @@ process_restriction_children({{xsd, "fractionDigits"}, Attrs, _Children}, #simpl
 process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #simpleRestriction{}=R) ->
     Value = attribute("value", Attrs),
     R#simpleRestriction{totalDigits=Value}.
+
+strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
+    strip_annotations(Rest);
+strip_annotations(X) ->
+    X.
 
 %%%====================
 
