@@ -34,9 +34,9 @@
          fractionDigits=undefined,
          totalDigits=undefined
         }).
--record(simpleList, {}).
--record(simpleUnion, {}).
--type(simpleDerivation() :: #simpleRestriction{} | #simpleList{} | #simpleUnion{}).
+-record(simpleListType,  {itemType}).
+-record(simpleUnionType, {memberTypes}).
+-type(simpleDerivation() :: #simpleRestriction{} | #simpleListType{} | #simpleUnionType{}).
 
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(complexType, {}).
@@ -95,7 +95,7 @@ process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     Type = process_simpleType_children(Children),
     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
-    [{TgtNS,TypeName,dummy} | Acc];
+    [{TgtNS,TypeName,Type} | Acc];
 process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
@@ -109,10 +109,23 @@ process_simpleType_children([{{xsd,"restriction"}, Attrs, Children}]) ->
     lists:foldl(fun process_restriction_children/2,
                 #simpleRestriction{base=BaseType},
                 Children);
-process_simpleType_children([{{xsd,"list"}, _Attrs, _Children}]) ->
-    dummy;
-process_simpleType_children([{{xsd,"union"}, _Attrs, _Children}]) ->
-    dummy.
+process_simpleType_children([{{xsd,"list"}, Attrs, Children}]) ->
+    case [X || X={{xsd,"simpleType"},_,_} <- Children] of
+        [] ->
+            ItemType = {named,attribute("itemType", Attrs)};
+        [ItemTypeElement] ->
+            ItemType = process_simpleType_children(ItemTypeElement)
+    end,
+    #simpleListType{itemType=ItemType};
+process_simpleType_children([{{xsd,"union"}, Attrs, Children}]) ->
+    case [X || X={{xsd,"simpleType"},_,_} <- Children] of
+        [] ->
+            MemberTypes = [{named,X}
+                           || X<-list_attribute("memberTypes", Attrs)];
+        MemberTypeElements ->
+            MemberTypes = [process_simpleType_children(X) || X <-MemberTypeElements]
+    end,
+    #simpleUnionType{memberTypes=MemberTypes}.
 
 process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{}=R) ->
     EnumValue = attribute("value", Attrs),
@@ -153,5 +166,11 @@ process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #simpleRe
 attribute(AName, Attrs) ->
     case lists:keyfind({"", AName}, 1, Attrs) of
         {_, Value} -> Value;
+        false -> error({no_such_attribute, AName, Attrs})
+    end.
+
+list_attribute(AName, Attrs) ->
+    case lists:keyfind({"", AName}, 1, Attrs) of
+        {_, Value} -> string:tokens(Value, " ");
         false -> error({no_such_attribute, AName, Attrs})
     end.
