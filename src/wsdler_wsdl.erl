@@ -4,6 +4,7 @@
 -compile(export_all).
 
 -include_lib("xmerl/include/xmerl.hrl").
+-include("wsdler.hrl").
 
 %%% Namespaces:
 -define(XSD_NS0, "{http://www.w3.org/2001/XMLSchema}").
@@ -13,34 +14,6 @@
 -define(WSDL_NS, "http://schemas.xmlsoap.org/wsdl/").
 -define(SOAP_NS, "http://schemas.xmlsoap.org/wsdl/soap/").
 
-%-type(typedef(), #simpleType{} | #complexType{}).
-
--record(definitions, {
-          types=[]
-         }).
--record(types, {
-          types=[]
-         }).
-
-%% Simpletype choices:
--record(simpleRestriction,
-        {base,
-         patterns=[],
-         enumeration=[],
-         minLength=undefined,
-         maxLength=undefined,
-         minValue=undefined, % {Value,Inclusive}
-         maxValue=undefined, % {Value,Inclusive}
-         fractionDigits=undefined,
-         totalDigits=undefined
-        }).
--record(simpleListType,  {itemType}).
--record(simpleUnionType, {memberTypes}).
--type(simpleDerivation() :: #simpleRestriction{} | #simpleListType{} | #simpleUnionType{}).
-
--record(simpleType, {type :: {named,_} | simpleDerivation()}).
--record(complexType, {}).
--record(element, {name :: _, type :: #simpleType{}}).
 
 main(File) ->
     dom_parse(File),
@@ -101,6 +74,13 @@ process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     Type = process_simpleType_children(Children),
     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
+    try
+        Gen = wsdler_generators:generator(Type),
+        io:format("DB| generator: ~p\n", [Gen]),
+        io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
+    catch _:Reason ->
+            io:format("** Generator error: ~p\n", [Reason])
+    end,
     [{{TgtNS,TypeName},Type} | Acc];
 process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
@@ -139,9 +119,9 @@ process_simpleType({{xsd,"union"}, Attrs, Children}) ->
 process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#simpleRestriction{enumeration=[EnumValue | EVs]};
-process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{patterns=Ps}=R) ->
+process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{pattern=undefined}=R) ->
     Pattern = attribute("value", Attrs),
-    R#simpleRestriction{patterns=[Pattern | Ps]};
+    R#simpleRestriction{pattern=Pattern};
 process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #simpleRestriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#simpleRestriction{minLength=Length};
