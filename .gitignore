@@ -2,3 +2,4 @@
 *.wsdl
 /ebin
 /deps
+/.eunit
