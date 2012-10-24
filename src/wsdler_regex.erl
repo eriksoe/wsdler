@@ -9,8 +9,7 @@
           atomic_regex()
         | {concat, [regex()]}
         | {choice, [regex()]}
-        | {repeat, regex()} % One-or-more
-        | empty             % Equivalent to {concat, []}
+        | {repeat, integer(), integer()|infinity} % min, max
         ).
 
 -type(regex_token() ::
@@ -114,8 +113,8 @@ is_digit(C) -> C >= $0 andalso C =< $9.
 %%% Parsing step 2: building the parse tree
 tokens_to_tree(Tokens) ->
     Tokens2 = handle_grouping(Tokens),
-    Tokens3 = handle_alternation(Tokens2),
-    handle_concatenation_and_repetition(Tokens3).
+    Choices = handle_alternation(Tokens2),
+    make_choice([handle_concatenation_and_repetition(X) || X <- Choices]).
 
 handle_grouping([begin_group | Rest]) ->
     case lists:splitwith(fun(T) -> T/=end_group end, Rest) of
@@ -134,7 +133,7 @@ handle_alternation(L, Acc) ->
         {Choice, [choice_separator | Rest]} ->
             handle_alternation(Rest, [Choice|Acc]);
         {Choice, []} ->
-            make_choice(lists:reverse([Choice|Acc]))
+            lists:reverse([Choice|Acc])
     end.
 
 handle_concatenation_and_repetition(L) ->
@@ -147,31 +146,35 @@ handle_concatenation_and_repetition([{repeat,_,_} | _], _Acc) ->
 handle_concatenation_and_repetition([_, {repeat,_,_}, {repeat,_,_} | _], _Acc) ->
     error('duplicated_repetition');              %TODO: handle errors better
 handle_concatenation_and_repetition([X, {repeat,N,M} | Rest], Acc) ->
-    Y = handle_repetition(X, N,M),
+    Y = {repeat, X, N, M},
     handle_concatenation_and_repetition(Rest, [Y | Acc]);
 handle_concatenation_and_repetition([X | Rest], Acc) ->
     handle_concatenation_and_repetition(Rest, [X | Acc]).
 
-handle_repetition(X, N,M) ->
+%%%
+
+expand_repetition(X, N,M) ->
     if N==1, M==1 ->
             X;
        N==1, M==infinity ->
             {repeat, X};
        N==0 ->
-            make_choice([empty | handle_repetition(X, 1,M)]);
+            make_choice([make_empty() | expand_repetition(X, 1,M)]);
        M<N ->
             error({bad_repetition, N, M});
        N>0 ->
-            make_concat([X, handle_repetition(X, N-1, safe_minus_one(M))])
+            make_concat([X, expand_repetition(X, N-1, safe_minus_one(M))])
     end.
 
 safe_minus_one(infinity) -> infinity;
 safe_minus_one(M) when is_integer(M) -> M-1.
 
+%%%
 
 make_concat([X]) -> X;
-make_concat(L) -> {concat, L}.
+make_concat(L) when is_list(L) -> {concat, L}.
 
 make_choice([X]) -> X;
-make_choice(L) -> {choice, L}.
+make_choice(L) when is_list(L) -> {choice, L}.
 
+make_empty() -> {concat, []}.
