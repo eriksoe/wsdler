@@ -18,45 +18,11 @@
        | {repeat, integer(), integer()|infinity}
        ).
 
-%% Precedence levels:
-%% - choice
-%% - concatenation
-%% - repetition
-%% - grouping / atomic parts
-
-%% %% Precedences:
-%% -define(PREC_LOWEST, 0).
-%% -define(PREC_CONCAT, 1).
-%% -define(PREC_CHOICE, 2).
-%% -define(PREC_REPEAT, 3).
-%% -define(PREC_HIGHEST, 100).
-
-
-%% from_string(RegexStr) ->
-%%     case parse_choice(RegexStr, ?PREC_LOWEST) of
-%%         {Regex, ""} ->
-%%             Regex;
-%%         {_Regex, [C|_]=Rest} ->
-%%             Pos = length(RegexStr) - length(Rest),
-%%             error({regex_parse_error, unexpected_character,
-%%                    [{character, C}, {position, Pos}]})
-%%     end.
-
-%% %% Grouping.
-%% parse("(" ++ Rest, Prec) ->
-%%     case parse(Rest, ?PREC_LOWEST) of
-%%         {Regex, ")"++Rest2} ->
-%%             {Regex, Rest2};
-%%         {_Regex, ""} ->
-%%             error({regex_parse_error, 'missing_)', []});
-%%         {_Regex, _} ->
-%%             error({regex_parse_error, 'expected_)', []})
-%%     end;
-%% parse("\\d"++Rest, Prec) ->
-
-%% parse_choice(RegexStr) -> parse_choice(RegexStr, []);
-%% parse_choice(RegexStr, Acc) ->
-%%     case parse_concatenation(RegexStr) of
+from_string(Str) ->
+    case tokens(Str) of
+        {ok,Tokens} -> tokens_to_tree(Tokens);
+        {error,_}=Err -> Err
+    end.
 
 
 %%% Parsing step 1: atomic parts and delimiters
@@ -178,3 +144,78 @@ make_choice([X]) -> X;
 make_choice(L) when is_list(L) -> {choice, L}.
 
 make_empty() -> {concat, []}.
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+empty_parse_test() ->
+    ?assertEqual({concat,[]}, from_string("")).
+
+simple_character_test() ->
+    ?assertEqual({literal, $X}, from_string("X")).
+
+special_characters_test() ->
+    ?assertEqual({literal, $\\}, from_string("\\\\")),
+    ?assertEqual({literal, $|}, from_string("\\|")),
+    ?assertEqual({literal, $(}, from_string("\\(")),
+    ?assertEqual({literal, $)}, from_string("\\)")),
+    ?assertEqual({literal, $[}, from_string("\\[")),
+    ?assertEqual({literal, $]}, from_string("\\]")),
+    ?assertEqual({literal, ${}, from_string("\\{")),
+    ?assertEqual({literal, $}}, from_string("\\}")),
+    ?assertEqual({literal, $?}, from_string("\\?")),
+    ?assertEqual({literal, $*}, from_string("\\*")),
+    ?assertEqual({literal, $+}, from_string("\\+")),
+    ok.
+
+simple_concat_test() ->
+    ?assertEqual({concat,[{literal, $x}, {literal, $y}]}, from_string("xy")),
+    ?assertEqual({concat,[{literal, $x}, {literal, $y}, {literal, $z}]},
+             from_string("xyz")),
+    ok.
+
+repetition_test() ->
+    ?assertEqual({repeat, {literal, $x}, 0,infinity}, from_string("x*")),
+    ?assertEqual({repeat, {literal, $x}, 1,infinity}, from_string("x+")),
+    ?assertEqual({repeat, {literal, $x}, 0,1}, from_string("x?")),
+
+    ?assertEqual({repeat, {literal, $x}, 5,5}, from_string("x{5,5}")),
+    ?assertEqual({repeat, {literal, $x}, 125,125}, from_string("x{125}")),
+    ?assertEqual({repeat, {literal, $x}, 0,5}, from_string("x{,5}")),
+    ?assertEqual({repeat, {literal, $x}, 5,infinity}, from_string("x{5,}")),
+    ?assertEqual({repeat, {literal, $x}, 12,345}, from_string("x{12,345}")),
+    ok.
+
+choice_test() ->
+    ?assertEqual({choice, [{literal, $x}, {literal, $y}]},
+                 from_string("x|y")),
+    ?assertEqual({choice, [{literal, $x}, {concat,[]}]},
+                 from_string("x|")),
+    ?assertEqual({choice, [{concat,[]}, {literal, $y}]},
+                 from_string("|y")),
+    ok.
+
+precedence_concat_vs_choice_test() ->
+    %% Concatenation binds stronger than alternation.
+    X = {literal, $x},
+    Y = {literal, $y},
+    Z = {literal, $z},
+    W = {literal, $w},
+    ?assertEqual({choice, [{concat, [X,Y]}, {concat, [W,Z]}]},
+                 from_string("xy|wz")),
+    ?assertEqual({choice, [X, {concat, [W,Z]}]},
+                 from_string("x|wz")),
+    ?assertEqual({choice, [{concat, [X,Y]}, Z]},
+                 from_string("xy|z")),
+
+    %% Grouping overrides:
+    ?assertEqual({concat, [X,{choice, [Y,W]},Z]},
+                 from_string("x(y|w)z")),
+    ?assertEqual({concat, [{choice, [X,W]},Z]},
+                 from_string("(x|w)z")),
+    ?assertEqual({concat, [X,{choice, [Y,Z]}]},
+                 from_string("x(y|z)")),
+
+    ok.
+
+-endif.
