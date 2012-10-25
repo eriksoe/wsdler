@@ -1,6 +1,8 @@
 -module(wsdler_regex).
 -compile(export_all). % For now
 
+-include_lib("triq/include/triq.hrl").
+
 -type(atomic_regex() ::
           {literal, char()}
         | {character_range, char(), char()} % Inclusive
@@ -125,7 +127,7 @@ expand_repetition(X, N,M) ->
        N==1, M==infinity ->
             {repeat, X};
        N==0 ->
-            make_choice([make_empty() | expand_repetition(X, 1,M)]);
+            make_choice([make_empty(), expand_repetition(X, 1,M)]);
        M<N ->
             error({bad_repetition, N, M});
        N>0 ->
@@ -144,6 +146,55 @@ make_choice([X]) -> X;
 make_choice(L) when is_list(L) -> {choice, L}.
 
 make_empty() -> {concat, []}.
+
+
+
+-spec to_generator/1 :: (regex()) -> _. % triq_dom:dom_rec(), really.
+to_generator(Regex) ->
+    {Gen,_Size}=Tmp = to_generator_and_size(Regex),
+    ?LET(Str, Gen, lists:flatten(Str)).
+
+to_generator_and_size({literal,C}) -> {[C],1};
+to_generator_and_size({character_range,C1,C2}) ->
+    Size = round(0.5 + math:sqrt(C2-C1)),
+    {[triq_dom:choose(C1,C2)], Size};
+to_generator_and_size({concat, Rs}) ->
+    {Gens, SizeSum} =
+        lists:mapfoldl(fun (R,AccSz) ->
+                               {G,Sz} = to_generator_and_size(R),
+                               {G, Sz+AccSz}
+                       end,
+                    0, Rs),
+    Size = round(0.5 + math:sqrt(SizeSum)),
+    {Gens, Size};
+to_generator_and_size({choice, Rs}) ->
+    {FreqSpec, SizeSum} =
+        lists:mapfoldl(fun (R,AccSz) ->
+                               {G,Sz} = to_generator_and_size(R),
+                               {{Sz,G}, Sz+AccSz}
+                       end,
+                       0, Rs),
+    Size = round(0.5 + math:sqrt(SizeSum)),
+    {triq_dom:frequency(FreqSpec), Size};
+to_generator_and_size({repeat, ElmRegex, Min, Max}) ->
+    {ElmGen, ElmSize} = to_generator_and_size(ElmRegex),
+    case Max of
+        infinity ->
+            Size = 4 * ElmSize,
+            Gen = lists:duplicate(Min,ElmGen) ++ triq_dom:list(ElmGen);
+        _ ->
+            %% TODO: triq doesn't support "list of length <lengthspec>". This is a workaround:
+            Size = round(0.5 + math:sqrt(Max-Min)) * ElmSize,
+            {Gen,_} = to_generator_and_size(expand_repetition(ElmRegex, Min, Max))
+%%             Gen =?SIZED(Size,
+%%                         ?LET(Length, choose(Min,Max),
+%%                              lists:unzip([triq_dom:pick(ElmGen, Size)
+%%                                           || _ <- lists:seq(1,Length)])
+%%                             )
+%%                        )
+    end,
+    {Gen, Size}.
+
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
