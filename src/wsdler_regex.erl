@@ -48,6 +48,9 @@ first_token("*"++Rest) -> {{repeat,0,infinity}, Rest};
 first_token("+"++Rest) -> {{repeat,1,infinity}, Rest};
 first_token("|"++Rest) -> {choice_separator, Rest};
 first_token("\\d"++Rest) -> {{character_range, $0, $9}, Rest};
+first_token("["++Rest) ->
+    {CharClass,Rest2} = parse_charclass1(Rest),
+    {charclass_to_regex(CharClass), Rest2};
 first_token("{"++Rest) ->
     {N,M,Rest2} = parse_repeat_operator(Rest),
     {{repeat, N,M}, Rest2};
@@ -56,6 +59,105 @@ first_token("\\"++[C|Rest]) -> {{literal, C}, Rest};
 first_token("\\")           -> {error, unfinished_escape_sequence};
 %% TODO: Other special characters
 first_token([C|Rest])       -> {{literal, C}, Rest}.
+
+%%% Character classes.
+%%% Step 1: Handle negation.
+parse_charclass1("^"++Rest) ->
+    {Ranges, Rest2} = parse_charclass2(Rest),
+    {subtract_charclass([{character_range, 0, 127},
+                         {character_range, 128, 16#FFFF}], Ranges),
+     Rest2};
+parse_charclass1(Rest) -> parse_charclass2(Rest).
+
+%%% Step 2: Handle initial characters.
+parse_charclass2("-"++Rest) -> parse_charclass3(Rest, [{$-, $-}]);
+parse_charclass2("]"++Rest) -> parse_charclass3(Rest, [{$], $]}]);
+parse_charclass2(Rest)      -> parse_charclass3(Rest, []).
+
+%%% Step 3: Normal handling.
+parse_charclass3("]" ++ Rest, Acc) -> {Acc, Rest};
+parse_charclass3("-[" ++ Rest, Acc) ->
+    %% Character class subtraction:
+    {SubtractRanges, Rest2} = parse_charclass1(Rest),
+    case Rest2 of
+        "]"++Rest3 -> {subtract_charclass(Acc, SubtractRanges), Rest3};
+        _ -> error('expected_]_after_subtracted_character_class')
+    end;
+% TODO: Handle special classes: \d, \w etc.
+parse_charclass3([$\\, C, $- | Rest], Acc) ->
+    parse_charclass3_range(Rest, Acc, C);
+parse_charclass3([$\\, C | Rest], Acc) ->
+    parse_charclass3(Rest, [{C,C}|Acc]);
+parse_charclass3([C, $- |Rest], Acc) ->
+    parse_charclass3_range(Rest, Acc, C);
+parse_charclass3([C | Rest], Acc) ->
+    parse_charclass3(Rest, [{C,C}|Acc]);
+parse_charclass3([], _Acc) ->
+    error('missing_]').
+
+% TODO: Handle special classes: \d, \w etc.?
+parse_charclass3_range([$] | Rest], Acc, Start) ->
+    %% Special case: '-' right before ']'.
+    {[{Start,Start} | Acc], Rest};
+parse_charclass3_range([$\\, End | Rest], Acc, Start) ->
+    parse_charclass3(Rest, [{Start,End} | Acc]);
+parse_charclass3_range([End | Rest], Acc, Start) ->
+    parse_charclass3(Rest, [{Start,End} | Acc]).
+
+subtract_charclass(A0,B0) ->
+    A = normalize_charclass(A0),
+    B = normalize_charclass(B0),
+    subtract_charclass_aux(A,B).
+
+subtract_charclass_aux([],_) -> [];
+subtract_charclass_aux(A,[]) -> A;
+subtract_charclass_aux([{AStart,AEnd}=A | ARest]=AL,
+                       [{BStart,BEnd}=_B | BRest]=BL) ->
+    %% Look at the starts:
+    if BStart > AEnd ->
+            %% A passes.
+            [A |
+             subtract_charclass_aux(ARest, BL)];
+       AStart > BEnd ->
+            %% B can be dropped.
+            subtract_charclass_aux(AL, BRest);
+       %% There is overlap - but which kind?
+       AEnd =< BEnd ->
+            %% All of A is subtracted.
+            subtract_charclass_aux(ARest, BL);
+       AStart >= BStart ->
+            %% First part of A is subtracted.
+            %% We have AStart =< BEnd < AEnd
+            subtract_charclass_aux([{BEnd+1, AEnd} | ARest], BL);
+       true ->
+            %% First part of A is not subtracted.
+            %% We have AStart < BStart =< AEnd
+            [{AStart,BStart-1} |
+             subtract_charclass_aux([{BStart,AEnd}, ARest], BL)]
+    end.
+
+normalize_charclass(L) ->
+    L2 = lists:sort(L),
+    normalize_charclass_walk(L2).
+
+normalize_charclass_walk([]) -> [];
+normalize_charclass_walk([{Start,End} | Rest]) when Start>End ->
+    %% Empty interval.
+    normalize_charclass_walk(Rest);
+normalize_charclass_walk([A]) -> [A];
+normalize_charclass_walk([{AStart,AEnd}=A, {_BStart,BEnd}=B | Rest]) ->
+    %% At this point, AStart =< _BStart.
+    if BEnd =< AEnd -> % Overlap.
+            normalize_charclass_walk([{AStart, BEnd} | Rest]);
+       true -> % No overlap.
+            [A | normalize_charclass_walk([B | Rest])]
+    end.
+
+charclass_to_regex(L) ->
+    make_choice([if C1==C2 -> {literal,C1};
+                    true -> {character_range, C1,C2}
+                 end
+                 || {C1,C2} <- L]).
 
 
 parse_repeat_operator(S) ->
@@ -151,7 +253,7 @@ make_empty() -> {concat, []}.
 
 -spec to_generator/1 :: (regex()) -> _. % triq_dom:dom_rec(), really.
 to_generator(Regex) ->
-    {Gen,_Size}=Tmp = to_generator_and_size(Regex),
+    {Gen,_Size} = to_generator_and_size(Regex),
     ?LET(Str, Gen, lists:flatten(Str)).
 
 to_generator_and_size({literal,C}) -> {[C],1};
