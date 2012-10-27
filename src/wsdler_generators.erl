@@ -15,8 +15,8 @@ generator(#simpleRestriction{base="dateTime"}) ->
          format_years_from_now_as_datetime(math:pow(X,7)));
 generator(#simpleRestriction{base="string", pattern=Pattern}) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
-    Statem = regex_to_statemachine(Pattern),
-    statemachine_to_generator(Statem);
+    Regex = wsdler_regex:from_string(Pattern),
+    wsdler_regex:to_generator(Regex);
 generator(#simpleRestriction{base="string", minLength=MinLen0, maxLength=MaxLen}) when MinLen0 /= undefined; MaxLen /= undefined ->
     MinLen = if MinLen0==undefined -> 0;
                 true -> MinLen0
@@ -57,24 +57,4 @@ format_int(_X,0,Acc) -> Acc;
 format_int(X,N,Acc) -> format_int(X div 10, N-1, [$0 + X rem 10 | Acc]).
 
 %%%========== STRING Generation ========================================
-
-regex_to_statemachine(Regex) -> regex_to_statemachine(Regex,[]).
-
-%% TODO: This list-based model is too simple; handle combinator and precedences properly. (A list-to-tree post-processing step will probably do.)
-regex_to_statemachine([], Acc) ->
-    lists:reverse(Acc,[accept]);
-regex_to_statemachine("\\d"++Rest, Acc) ->
-    regex_to_statemachine(Rest, [{char_range, $0, $9} | Acc]);
-regex_to_statemachine(("{"++Rest1)=Regex, [Last|Acc]) ->
-    case lists:splitwith(fun(C)-> $0 =< C andalso C =< $9 end, Rest1) of
-        {CountStr, "}"++Rest2} when CountStr /= "" ->
-            Count = list_to_integer(CountStr),
-            regex_to_statemachine(Rest2, lists:duplicate(Count,Last)++Acc);
-        _ ->
-            error({bad_regex, Regex})
-    end.
-
-statemachine_to_generator([accept]) -> "";
-statemachine_to_generator([{char_range,Start,End} | Rest]) ->
-    TailGen = statemachine_to_generator(Rest),
-    [choose(Start,End) | TailGen].
+%%% (Much heavy lifting done by the wsdler_regex module.)
