@@ -5,6 +5,20 @@
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
+generator(#element{name=ElmName, type=Type}, WSDL) ->
+    make_element(ElmName, [], generator(Type, WSDL));
+generator(#simpleType{type={named,TypeName}},
+          #wsdl{typedict=TypeDict}=WSDL) ->
+    TypeDef = dict:fetch(TypeName, TypeDict),
+    generator(TypeDef,WSDL);
+generator(#simpleType{type=Type},WSDL) ->
+    generator(Type,WSDL);
+generator(Type,_) ->
+    generator(Type).
+
+make_element({NS,Name}, Attrs, Content) ->
+    {Name, [{'xmlns',NS} | Attrs], Content}.
+
 generator(#simpleRestriction{enumeration=Enum}) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);
 generator(#simpleRestriction{base="boolean"}) ->
@@ -29,8 +43,10 @@ generator(#simpleRestriction{base="string", minLength=MinLen0, maxLength=MaxLen}
             ?LET(X, choose(MinLen,MaxLen),
                  [CharGen || _ <- lists:seq(1,X)])
     end;
+generator(#simpleUnionType{memberTypes=Types}) ->
+    oneof([generator(T) || T <- Types]);
 generator(_Other) ->
-    'TODO'.
+    {'TODO',_Other}.
 
 %%%========== DATETIME Generation ========================================
 

@@ -16,17 +16,25 @@
 
 
 main(File) ->
-    dom_parse(File),
-    ok.
+    _WSDL = dom_parse(File).
 
 
 %%%========== Using "Simple DOM with nameFun" model of erlsom ==========
-
+-type(erlsom_dom() :: {_,[_],[_]}).
 dom_parse(File) ->
-    {ok, WSDL, _} = erlsom:simple_form_file(File, [{nameFun, fun symbolic_name/3}]),
-    R = process_wsdl(WSDL),
-    io:format("R = ~p\n", [R]),
-    ok.
+    {ok, RawWSDL, _} = erlsom:simple_form_file(File, [{nameFun, fun symbolic_name/3}]),
+    WSDL = process_wsdl(RawWSDL),
+    io:format("WSDL = ~p\n", [WSDL]),
+    TypeNames = dict:fetch_keys(WSDL#wsdl.typedict),
+    io:format("Types = ~p\n", [TypeNames]),
+    lists:foreach(fun(TN) ->
+                          TD = dict:fetch(TN, WSDL#wsdl.typedict),
+                          Gen = wsdler_generators:generator(TD, WSDL),
+                          io:format("Type sample for ~p:\n  ~p\n",
+                                    [TN, triq_dom:sample(Gen)])
+                  end,
+                  TypeNames),
+    WSDL.
 
 symbolic_name(Name, ?XSD_NS , _) -> {xsd,  Name};
 symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
@@ -34,20 +42,34 @@ symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
 symbolic_name(Name, NS,       _) -> {NS, Name}.
 
 
+-spec(process_wsdl/1 :: (erlsom_dom()) -> #definitions{}).
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
-    lists:foldl(fun process_defs_children/2, #definitions{}, Children).
+    close_definitions(lists:foldl(fun process_defs_children/2, #definitions{}, Children)).
+
+close_definitions(#definitions{types=Types}) ->
+    TypeDict = lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
+                           dict:new(),
+                           Types),
+    #wsdl{typedict=TypeDict}.
+
+add_to_field(Record,Key,Value) ->
+    setelement(Key,Record, [Value | element(Key,Record)]).
 
 process_defs_children({{wsdl, "types"}, _Attrs, Children}, #definitions{}=Acc) ->
     Types = lists:foldl(fun process_types_children/2, [], Children),
     Acc#definitions{types = Types++Acc#definitions.types};
-process_defs_children({{wsdl, "message"}, _Attrs, _Children}, Acc) ->
-    [{message,_Attrs}|Acc];
+process_defs_children({{wsdl, "message"}, Attrs, _Children}, Acc) ->
+    add_to_field(Acc, #definitions.messages, {message,Attrs});
+%%     [{message,_Attrs}|Acc];
 process_defs_children({{wsdl, "portType"}, _Attrs, _Children}, Acc) ->
-    [portType|Acc];
+%%     [portType|Acc];
+    add_to_field(Acc, #definitions.portTypes, {portType});
 process_defs_children({{wsdl, "binding"}, _Attrs, _Children}, Acc) ->
-    [binding|Acc];
+    add_to_field(Acc, #definitions.bindings, {binding,_Attrs});
+%%     [binding|Acc];
 process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
-    [service|Acc].
+    add_to_field(Acc, #definitions.services, {service}).
+%%     [service|Acc].
 
 process_types_children({{xsd,"schema"}, Attrs, Children}, Acc) ->
     TgtNS = attribute("targetNamespace", Attrs),
@@ -57,7 +79,7 @@ process_types_children({{xsd,"schema"}, Attrs, Children}, Acc) ->
     Types.
 
 process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
-    io:format("DB| import: ~p\n", [_Attrs]),
+%%     io:format("DB| import: ~p\n", [_Attrs]),
     Acc;
 process_schema_children({{xsd,"element"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
@@ -65,26 +87,26 @@ process_schema_children({{xsd,"element"}, Attrs, Children}, Acc, TgtNS) ->
         case strip_annotations(Children) of
             [{{xsd,"complexType"},_,_}] -> {complexType, 'TODO'};
             [{{xsd,"simpleType"},_,_}] -> {simpleType, 'TODO'};
-            [] -> {simpleType, {name,attribute("type",Attrs)}}
+            [] -> {simpleType, {named,attribute("type",Attrs)}}
         end,
     Type = #element{name={TgtNS, TypeName}, type=TypeContent},
-    io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
+%%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
     [{{TgtNS,TypeName},Type} | Acc];
 process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
     Type = process_simpleType_children(Children),
-    io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
-    try
-        Gen = wsdler_generators:generator(Type),
-        io:format("DB| generator: ~p\n", [Gen]),
-        io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
-    catch _:Reason ->
-            io:format("** Generator error: ~p\n", [Reason])
-    end,
+%%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
+%%     try
+%%         Gen = wsdler_generators:generator(Type),
+%%         io:format("DB| generator: ~p\n", [Gen]),
+%%         io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
+%%     catch _:Reason ->
+%%             io:format("** Generator error: ~p\n", [Reason])
+%%     end,
     [{{TgtNS,TypeName},Type} | Acc];
 process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
+%%     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
     [{{TgtNS,TypeName},dummy} | Acc].
 
 

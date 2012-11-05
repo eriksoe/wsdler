@@ -1,15 +1,6 @@
 -ifndef(wsdler_hrl).
 -define(wsdler_hrl, included).
 
-%-type(typedef(), #simpleType{} | #complexType{}).
-
--record(definitions, {
-          types=[]
-         }).
--record(types, {
-          types=[]
-         }).
-
 %% Simpletype choices:
 -record(simpleRestriction,
         {base,
@@ -29,5 +20,23 @@
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(complexType, {}).
 -record(element, {name :: _, type :: #simpleType{}}).
+
+-type(typedef() :: #simpleType{} | #complexType{}).
+
+-record(definitions, {
+          types=[] :: [typedef()],
+          messages=[],
+          portTypes=[],
+          bindings=[],
+          services=[]
+         }).
+%% -record(types, {
+%%           types=[]
+%%          }).
+
+
+-record(wsdl, {
+          typedict :: dict:dict(_,_)
+                      }).
 
 -endif.
