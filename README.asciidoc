@@ -1,0 +1,121 @@
+wsdler -- A property-testing tool for WSDL services
+===================================================
+
+What is wsdler?
+---------------
+
+Wsdler is a tool (currently in pre-alpha)
+for black-box testing of web services.
+
+Wsdler is named after WSDL; the WSDL specification of a web service is
+wsdler's primary source of information about how to test the service.
+
+Wdsler is pronounced "whistler".
+
+What does it do?
+----------------
+
+To test a web service with wsdler, you give it a *test specification*.
+Wsdler then generates random (but syntactically valid) requests and
+sends them to the service one by one. The service's responses are
+verified against expectations, and any discrepancies are reported.
+
+Testing thus involves the following parts:
+
+ - Input generation
+ - Service invocation
+ - Output verification
+
+In one mode of operation, requests are sent in sequences called
+*stories*, and when a discrepancy is encountered, wsdler will attempt
+to find the shortest story which exhibits the problem.
+
+What goes into a test specification?
+------------------------------------
+
+Of the things which may be included in a test specification, only two
+things are mandatory -- the rest can be added for more precise and
+deep testing.
+
+Mandatory parts of the test specification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The mandatory parts are:
+
+What is the interface to the service?::
++
+The interface is a WSDL description of the inputs and outputs of
+the service.
+
+Where is the server to be tested running?::
++
+The WSDL contains a URL of the service, but most likely you'd rather
+that wsdler runs against a separate test instance of the service.
++
+Equipped with just the WSDL and the location of the service, wsdler
+will generate random (but syntactically valid) requests to the
+service, and then verify just that the service responsds with an
+output (rather than a fault).
++
+That's a rather shallow form of testing, though it may still turn up
+something interesting.
+
+For deeper testing, the following optional parts can be added to the
+test specification:
+
+Output verification and state modelling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What is expected of the server's outputs?::
++
+Expectations are properties stated in terms of the contents of the
+request, the response, and a *model* maintained by wsdler.
+
+How is the model updated?::
++
+Some properties can not be stated in terms of just a single
+request/response pair, but depends on history -- what has happened
+earlier.
++
+A model can provide this information; there must then be defined
+rules specifying how the model changes when a request has been
+sent or a response received.
+
+Input generator customization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+How can more sensible input data be generated?::
++
+Wsdler will use the XML schemas in the WSDL to generate random input
+values.  Sometimes, however, such random inputs aren't of much use,
+for instance if the service performs some validation which rejects the
+majority of inputs -- meaning that the deeper parts of the service will seldomly be exercised at all.
++
+For such circumstances, custom input generators can be specified.
+
+When should more sensible input data be generated?::
++
+Even when custom input generators are provided, wsdler will use its
+own random generators.  The randomness serves a purpose: it covers the
+input value space more completely and therefore often gives better
+code coverage than custom generators would tend to do.
++
+The strategy of wsdler is therefore to use a mix of the built-in and
+the custom generators.  Wsdler can be told which circumstances are
+signs that the value of a particular input field was badly chosen --
+and, by extension, which generator should probably be used less.
++
+After a bit of trying, wsdler can with this information reach a
+suitable generator mix which both exercises the interesting parts of
+the service and the validating parts.
+
+
+Where can I learn more?
+-----------------------
+
+The `doc` directory contains more information, such as documentation
+of the test specification format, and semantics of property expressions. (TODO)
+
+(TODO: build & invocation instructions.)
+
+
