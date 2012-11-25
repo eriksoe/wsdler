@@ -1,0 +1,99 @@
+Wsdler data model
+=================
+
+Wsdler expressions and the values occurring in them are *strongly typed*.
+
+
+Data types
+----------
+
+The basic data types wslder supports are:
+ - Boolean
+ - Integer
+ - Floating-point number
+ - Time
+ - String
+
+Data types can be combined into more complex types:
+ - Set(T_k)
+ - List(T_v)
+ - Map(T_k,T_v)
+ - Record(field_1:T_1, ..., field_n:T_n)
+
+Equality types
+~~~~~~~~~~~~~~
+The key types used in Set and Map types must be equality types, i.e. one
+of: boolean, integer, string, or Record of equality types.
+
+Incomplete knowledge
+--------------------
+Values can be *unknown* or even *partially known*.
+What a partially known value means is data type dependent.
+
+ - For the type boolean, there are only the values false, true, and unknown.
+ - For the type integer, floating-point number, and time, a partially
+   known value is a closed or open interval using the natural ordering.
+ - For the string type, a partially known value is a closed or open
+   interval using the lexicographic ordering.
+ - For Record types, a partially known value is simply a Record which
+   contains partially known values for one or more of its fields.
+ - For Set(T) types, a partially known value is a function from T to
+   \{contained,not_contained,unknown\}.
+ - For Map(T_k,T_v) types, a partially known value is a function from T to
+   \{contained(T_value), not_contained, unknown\}.
+
+Constraints
+~~~~~~~~~~~
+ - Keys used in Set and Map operations must be completely known.
+
+Expressions
+-----------
+
+
+Functions
+---------
+
+Wsdler provides a set of built-in functions and operators.
+
+Boolean
+~~~~~~~
+
+ - and
+ - or
+ - not
+
+Numbers
+~~~~~~~
+
+ - Addition, `+`
+ - Subtraction, `-`
+ - Multiplication, `*`
+ - Division, `/`
+
+Integers
+~~~~~~~~
+ - Integer division, `div`
+ - Remainder by division, `rem`
+
+Records
+~~~~~~~
+ - Record construction, `record(f1:v1, ...)`
+ - Field access
+Sets
+~~~~
+ - Empty set, `empty`
+ - Set construction, `set(v1,v2,...)`
+ - Set union
+ - Set intersection
+ - Set negation
+ - Set lookup
+
+Maps
+~~~~
+ - Empty map, `empty`
+ - Singleton mapping, `mapping(k,v)`
+ - Map union
+ - Removal of key set
+ - Value transformation
+ - Key lookup
+

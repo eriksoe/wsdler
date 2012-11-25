@@ -1,0 +1,90 @@
+Wsdler test specification format
+================================
+
+Wsdler test specifications govern how wsdler should go about testing a
+web service.
+
+Test specification files have the form of Erlang term files (as readable by link:http://www.erlang.org/doc/man/file.html#consult-1[`file:consult/1`].
+
+The form and meaning of the terms -- called *directives* -- is explained below.
+
+Outline
+-------
+The goings-on around a single service invocation by wsdler is as depicted below:
+
+            |
+            v
+  +---------------------+
+  |  Input generation   |<------,
+  +---------------------+       |
+            |                   |
+            v                   |
+        (Request)               |
+            |                   |
+            v                   |
+  +---------------------+       |
+  | Service invocation  |       |
+  +---------------------+       |
+            |                   |
+            v                   |
+        (Response)              |
+            |                   |
+            v                   |
+  +---------------------+       |
+  |     Evaluation      |<---(Model)
+  +---------------------+       ^
+    |       |                   |
+    |       v                   |
+    |     (Model updates)-------'
+    |
+    v
+ (Output verification results)
+
+Each step is governed by certain parts of the test specification.
+
+// TODO note about modularity.
+
+Service-definition
+~~~~~~~~~~~~~~~~~~
+These parts are mandatory.
+
+`{wsdl, WsdlFileName}`::
+This specifies the location of the WSDL describing the service.
+
+`{server_location, Host, Port}`::
+This specifies the location of the service instance to be tested.
+
+Service list
+~~~~~~~~~~~~
+`{include_services, [ServiceName]}`::
+Specifies services to invoke.
+If no `include_services` directive is present, all of the services
+defined in the WSDL are included.
+
+
+Directives governing evaluation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+`{rule, ServiceName, Rule}`::
+Defines a rule to be evaluated after invocation of the service ServiceName.
++
+Rules yield two kinds of things: assertions about the output, and model updates.
++
+See ?? for more on rules.
+
+Parts governing evaluation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Rules and expressions
+---------------------
+//////////
+{if, Cond, Rule}
+{if_else, Cond, RuleOnTrue, RuleOnFalse}
+{'=', _, _} -- and <,>,<=,>=,<>
+
+Data types
+Expressions
+
+//////////
+
