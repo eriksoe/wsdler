@@ -4,6 +4,15 @@
 
 -compile(export_all). % For now.
 
+%%% Purpose: Type checking and evaluation of expressions.
+%%%
+%%% The focus is not on performance, but on features -- in particular,
+%%% intuitive handling of unknown and partially unknown values --
+%%% as well as code clarity.
+%%% For this reason, there is in fact an "interpreter within the interpreter"
+%%% [see binop_spec and exec_binop_spec] for handling operators in a
+%%% uniform and concise manner.
+
 -type(equality_type() ::
       boolean | integer | string
       | {record, [{atom(), equality_type()}]}).
@@ -20,11 +29,20 @@
 %%%========== Type checker / decorator ========================================
 
 %% Literals:
-type_check({boolean_literal, _}, _Env) -> boolean;
-type_check({integer_literal, _}, _Env) -> integer;
-type_check({float_literal, _},   _Env) -> float;
-type_check({time_literal, _},    _Env) -> time;
-type_check({string_literal, _},  _Env) -> string;
+type_check({boolean_literal, V}, _Env) when is_boolean(V) ->
+    {boolean, {literal,V}};
+type_check({integer_literal, V}, _Env) when is_integer(V) ->
+    {integer, {literal,V}};
+type_check({float_literal, V},   _Env) when is_number(V) ->
+    {float,   {literal,V}};
+type_check({time_literal, V},    _Env) ->
+    % TODO: Check the value.
+    {time,    {literal,V}};
+type_check({string_literal, V},  _Env) when is_list(V) ->
+    % TODO: Check the value.
+    {string,  {literal,V}};
+%% TODO: Change the rest of type_check to return {Type, InternalExp}.
+%% TODO: Make handling of operators data-driven.
 %% Boolean ops:
 type_check({'and', _, _}=E0, Env) -> type_check_bool_binop(E0, Env);
 type_check({'or',  _, _}=E0, Env) -> type_check_bool_binop(E0, Env);
@@ -93,61 +111,73 @@ type_error(Reason, Exp) ->
 -define(unknown_check(Par,Var,Body),
         case Par of unknown -> unknown; Var -> Body end).
 
-evaluate({boolean_literal, V}, _Env) -> V;
-evaluate({integer_literal, V}, _Env) -> V;
-evaluate({float_literal, V},   _Env) -> V;
-evaluate({time_literal, V},    _Env) -> V;
-evaluate({string_literal, V},  _Env) -> V;
-%% Boolean ops:
-evaluate({'and', A, B}, Env) ->
-    case evaluate(A,Env) of
-        {boolean, true} -> evaluate(B,Env);
-        Res -> Res                              % false or unknown
-    end;
-evaluate({'or', A, B}, Env) ->
-    case evaluate(A,Env) of
-        {boolean, false} -> evaluate(B,Env);
-        Res -> Res                              % true or unknown
-    end;
-evaluate({'not'=Op, A}, Env) -> evaluate_unop(Op, A, Env).
+evaluate({literal, V}, _Env) -> V;
+%% Binary operators:
+evaluate({binop, Op, AExp, BExp}, Env) ->
+    AVal = evaluate(AExp, Env),
+    BVal = evaluate(BExp, Env),
 
-%%%==========
+    Spec = binop_spec(Op),
+    exec_binop_spec(Spec, AVal, BVal).
 
-evaluate_unop(Op, E1, Env) ->
-    V1 = evaluate(E1, Env),
-    perform_unop(Op, V1).
-
-evaluate_binop(Op, E1, E2, Env) ->
-    V1 = evaluate(E1, Env),
-    V2 = evaluate(E2, Env),
-    perform_binop(Op, V1, V2).
-
-%%%==========
-
-perform_unop(_, unknown) -> unknown;
-perform_unop('not', V) -> not V.
-
-perform_binop(_, unknown, _) -> unknown;
-perform_binop(_, _, unknown) -> unknown;
-perform_binop('int_+', V1, V2) ->
-    if is_integer(V1), is_integer(V2) -> V1+V2;
+exec_binop_spec([{annihilator, V} | Spec], A, B) ->
+    if A=:=V;
+       B=:=V ->
+            V;
        true ->
-            {in_range, V1min, V1max} = rangeify(V1),
-            {in_range, V2min, V2max} = rangeify(V2),
-            Min = ?unknown_check(V1min,A, ?unknown_check(V2min, B, A+B)),
-            Max = ?unknown_check(V1max,C, ?unknown_check(V2max, D, C+D)),
-            {in_range, Min,Max}
+            exec_binop_spec(Spec, A, B)
     end;
-perform_binop('int_-', V1, V2) ->
-    if is_integer(V1), is_integer(V2) -> V1-V2;
+exec_binop_spec([{fully_known, Fun} | Spec], A, B) when is_function(Fun,2) ->
+    BothKnown = is_known(A) andalso is_known(B),
+    if BothKnown ->
+            Fun(A,B);
        true ->
-            {in_range, V1min, V1max} = rangeify(V1),
-            {in_range, V2min, V2max} = rangeify(V2),
-            Min = ?unknown_check(V1min,A, ?unknown_check(V2max, D, A-D)),
-            Max = ?unknown_check(V1max,C, ?unknown_check(V2min, B, C-B)),
-            {in_range, Min,Max}
+            exec_binop_spec(Spec, A, B)
+    end;
+exec_binop_spec([{monotone, DirA, DirB} | Spec], A, B) ->
+    if element(1,A)==in_range;
+       element(1,B)==in_range ->
+            handle_monotone(polarize(rangeify(A),DirA),
+                            polarize(rangeify(B),DirB), Spec);
+       true ->
+            exec_binop_spec(Spec, A, B)
     end.
 
+polarize(Range, up) -> Range;
+polarize({in_range, Min,Max}, down) -> {in_range, Max, Min}.
+
+handle_monotone({in_range, A1, A2}, {in_range, B1, B2}, Spec) ->
+    {in_range,
+     exec_binop_spec(Spec, A1, B1),
+     exec_binop_spec(Spec, A2, B2)}.
+
+binop_spec('and') ->
+    [{annihilator, false}, {annihilator, unknown},
+     {fully_known, fun(A,B)->A and B end}];
+binop_spec('or') ->
+    [{annihilator, true}, {annihilator, unknown},
+     {fully_known, fun(A,B)->A or B end}];
+binop_spec('+') ->
+    [{annihilator, unknown},
+     {monotone, up, up},
+     {fully_known, fun(A,B)->A+B end}];
+binop_spec('-') ->
+    [{annihilator, unknown},
+     {monotone, up, down},
+     {fully_known, fun(A,B)->A-B end}];
+binop_spec('min') ->
+    [{annihilator, unknown},
+     {monotone, up, up},
+     {fully_known, fun(A,B)->min(A,B) end}];
+binop_spec('max') ->
+    [{annihilator, unknown},
+     {monotone, up, up},
+     {fully_known, fun(A,B)->max(A,B) end}].
 
 rangeify({in_range,_,_}=Range) -> Range;
 rangeify(V) -> {in_range, V, V}.
+
+is_known(unknown) -> false;
+is_known({in_range, _, _}) -> false;
+is_known(_) -> true.
+
