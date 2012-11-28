@@ -44,9 +44,9 @@ type_check({string_literal, V},  _Env) when is_list(V) ->
 %% TODO: Change the rest of type_check to return {Type, InternalExp}.
 %% TODO: Make handling of operators data-driven.
 %% Boolean ops:
-type_check({'and', _, _}=E0, Env) -> type_check_bool_binop(E0, Env);
-type_check({'or',  _, _}=E0, Env) -> type_check_bool_binop(E0, Env);
-type_check({'not', _   }=E0, Env) -> type_check_bool_unop(E0, Env);
+type_check({'and', _, _}=E0, Env) -> type_check_binop(E0, Env);
+type_check({'or',  _, _}=E0, Env) -> type_check_binop(E0, Env);
+type_check({'not', _   }=E0, Env) -> type_check_unop(E0, Env);
 
 %% Number ops:
 
@@ -68,17 +68,31 @@ type_check_bool_unop({_Unop, A}=E0, Env) ->
                                  end
                          end).
 
-type_check_bool_binop({_Binop, A, B}=E0, Env) ->
-    incomplete_if_any_is([type_check(A,Env), type_check(B,Env)],
-                         fun ([AT,BT]) ->
-                                 if AT==boolean, BT==boolean ->
-                                         boolean;
-                                    AT/=boolean ->
-                                         type_error({left_operand_not_boolean, AT}, E0);
-                                    BT/=boolean ->
-                                         type_error({right_operand_not_boolean, AT}, E0)
-                                 end
-                         end).
+type_check_unop({Op, A}, Env) ->
+    CheckedOperands = [type_check(X,Env) || X <- [A]],
+    OperandTypes = [Type || {Type,_} <- CheckedOperands],
+    {ConcreteOp, Type} = type_check_function(Op, OperandTypes),
+    [CkdA] = CheckedOperands,
+    {Type, {unop, ConcreteOp, CkdA}}.
+
+type_check_binop({Op, A, B}, Env) ->
+    CheckedOperands = [type_check(X,Env) || X <- [A,B]],
+    OperandTypes = [Type || {Type,_} <- CheckedOperands],
+    {ConcreteOp, Type} = type_check_function(Op, OperandTypes),
+    [CkdA,CkdB] = CheckedOperands,
+    {Type, {binop, ConcreteOp, CkdA, CkdB}}.
+
+%%%========== Function types: =============================================
+%%%==== Boolean operators:
+type_check_function('not', [boolean]) -> {'not',boolean};
+type_check_function('not', [{incomplete,boolean}]) -> {'i_not',{incomplete, boolean}};
+type_check_function('and', [boolean,boolean]) -> {'and',boolean};
+type_check_function('and', [{incomplete,boolean},{incomplete,boolean}]) -> {'i_and',{incomplete, boolean}};
+type_check_function('or', [boolean,boolean]) -> {'or',boolean};
+type_check_function('or', [{incomplete,boolean},{incomplete,boolean}]) -> {'i_or',{incomplete, boolean}};
+type_check_function(Function, OperandTypes) ->
+    error({type_error, {bad_function_operand_types, Function, OperandTypes}}).
+
 
 incomplete_if_any_is(L, Fun) ->
     incomplete_if_any_is(L,Fun,[],false).
