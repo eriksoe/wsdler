@@ -52,12 +52,16 @@ type_check({'not', _   }=E0, Env) -> type_check_unop(E0, Env);
 
 %% Record ops:
 type_check({record_cons, FVs}, Env) ->
-    {record, [{F,type_check(V,Env)} || {F,V} <- FVs]};
-type_check({record_lookup, F, Exp}=E0, Env) ->
-    {record, FTs} = RT = check_record_type(Exp,Env,E0),
-    case lists:lookup(F,1,FTs) of
-        {_,FT} -> FT;
-        false -> type_error({record_access, F, RT}, E0)
+    CheckedOperands = [{F,type_check(V,Env)} || {F,V} <- FVs],
+    FieldTypes = [{F,T} || {F,{T,_V}} <- CheckedOperands],
+    Type = {record, FieldTypes},
+    {Type, {record_cons, CheckedOperands}};
+type_check({record_lookup, Field, Exp}=E0, Env) ->
+    DecoratedRecordExp = {RecordType,_} = type_check(Exp,Env),
+    {record, FTs} = check_record_type(RecordType,E0),
+    case lists:keyfind(Field,1,FTs) of
+        {_,FT} -> {FT, {record_lookup, Field, DecoratedRecordExp}};
+        false  -> type_error({record_access, Field, RecordType}, E0)
     end.
 
 type_check_bool_unop({_Unop, A}=E0, Env) ->
@@ -111,8 +115,8 @@ incomplete_if_any_is([H|T], Fun, Acc, AnyIncomplete) ->
     incomplete_if_any_is(T, Fun, [HType|Acc], AnyIncomplete2).
 
 
-check_record_type(Exp,Env,E0) ->
-    case type_check(Exp,Env) of
+check_record_type(RecordType,E0) ->
+    case RecordType of
         {record,_}=T -> T;
         T-> type_error({not_a_record_type, T}, E0)
     end.
