@@ -63,7 +63,7 @@ defined in the WSDL are included.
 
 
 Directives governing evaluation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 `{rule, ServiceName, Rule}`::
 Defines a rule to be evaluated after invocation of the service ServiceName.
@@ -75,13 +75,83 @@ See ?? for more on rules.
 Parts governing evaluation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#
 
-Rules and expressions
----------------------
+Rules, actions, and expressions
+------------------------------
+A rule is something that can be evaluated, resulting in a (possibly
+empty) set of _actions_, which are either model updates or assertions.
+
+Assertions are boolean expressions that are to be verified.
+
+~~~~~~~~~~
+rule ::= {set, &lt;model-variable&gt;, &lt;expression&gt;}
+rule ::= {assert, &lt;expression&gt;}
+rule ::= {assert, &lt;description-string&gt;, &lt;expression&gt;}
+~~~~~~~~~~
+
+Model updates (+set+) are performed after all rules have been evaluated.
+They are not done in any particular order. There must not be
+conflicting model updates, so the update order should not matter, either.
+
+Assertions (+assert+) are evaluated before model updates. Each assertion
+expression must evaluate to a value of type +boolean+ or +incomplete
+boolean+. If the result is +false+, a verification error is signalled.
+If it is +true+ or +unknown+, nothing happens.
+
+Rules may be built from sub-rules which are executed conditionally
+(+if+), or evaluated in the scope of some local variable (+let+), or
+simply grouped together:
+
+~~~~~~~~~~
+rule ::= {if, &lt;expression&gt;, &lt;rule&gt;}
+rule ::= {if, &lt;expression&gt;, &lt;rule&gt;, &lt;rule&gt;}
+rule ::= {let, &lt;variable&gt;, &lt;expression&gt;, &lt;rule&gt;}
+rule ::= {'let*', [{&lt;variable&gt;, &lt;expression&gt;}, ...], &lt;rule&gt;}
+rule ::= [&lt;rule&gt;, ...]
+~~~~~~~~~~
+
+
+Expressions are more or less as you'd expect:
+~~~~~~~~~~
+expression ::= &lt;literal&gt;
+expression ::= &lt;variable&gt;
+expression ::= {&lt;unary-operator&gt;, &lt;expression&gt;}
+expression ::= {&lt;binary-operator&gt;, &lt;expression&gt;, &lt;expression&gt;}
+expression ::= {if, &lt;expression&gt;, &lt;expression&gt;, &lt;expression&gt;}
+expression ::= {let, &lt;variable&gt;, &lt;expression&gt;, &lt;expression&gt;}
+
+expression ::= {record_cons, [{&lt;field-name&gt;,&lt;expression&gt;}, ...]
+expression ::= {record_lookup, &lt;field-name&gt; &lt;expression&gt;}
+
+literal ::= &lt;boolean-literal&gt;
+literal ::= &lt;integer-literal&gt;
+literal ::= &lt;floating-point-literal&gt;
+literal ::= &lt;string-literal&gt;
+literal ::= &lt;time-literal&gt;
+literal ::= empty_set
+literal ::= empty_map
+~~~~~~~~~~
+
+Note that there is an important difference between the rule-level +if+ and the expression-level +if+:
+
+The condition (first expression) of the _expression-level_ +if+ may be
+of type +incomplete boolean+ (i.e., evaluate to either +false+, +true+
+or +unknown+). If the condition evaluates to +unknown+, then so does
+the entire +if+-expression.
+
+The condition of the _rule-level_ +if+, on the other hand, must be of
+type +boolean+, i.e. always evaluate to either +false+ or +true+. The
+set of actions to which a rule evaluates must always be fully known.
+
+
+~~~~~~~~~~
+~~~~~~~~~~
+
 //////////
 {if, Cond, Rule}
 {if_else, Cond, RuleOnTrue, RuleOnFalse}
-{'=', _, _} -- and <,>,<=,>=,<>
+{'=', _, _} -- and &lt;,&gt;,&lt;=,&gt;=,&lt;&gt;
 
 Data types
 Expressions
