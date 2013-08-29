@@ -36,6 +36,16 @@ dom_parse(File) ->
                   TypeNames),
     WSDL.
 
+
+parse_xsd_file(FileName) ->
+    {ok,Text} = file:read_file(FileName),
+    parse_xsd(Text).
+
+parse_xsd(XMLText) ->
+    {ok,XMLTree,_Rest} = erlsom:simple_form(XMLText, [{nameFun, fun symbolic_name/3}]),
+    Types = process_types_children(XMLTree, []),
+    {ok, build_type_dict(Types)}.
+
 symbolic_name(Name, ?XSD_NS , _) -> {xsd,  Name};
 symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
 symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
@@ -47,10 +57,13 @@ process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
     close_definitions(lists:foldl(fun process_defs_children/2, #definitions{}, Children)).
 
 close_definitions(#definitions{types=Types}) ->
-    TypeDict = lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
-                           dict:new(),
-                           Types),
+    TypeDict = build_type_dict(Types),
     #wsdl{typedict=TypeDict}.
+
+build_type_dict(Types) when is_list(Types) ->
+    lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
+                dict:new(),
+                Types).
 
 add_to_field(Record,Key,Value) ->
     setelement(Key,Record, [Value | element(Key,Record)]).
