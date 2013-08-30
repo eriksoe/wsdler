@@ -1,5 +1,5 @@
 compile:
-	erl -make
+	ERL_LIBS=$ERL_LIBS:deps/ erl -make
 
 setup:
 	./rebar get-deps && ./rebar compile
