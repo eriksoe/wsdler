@@ -1,5 +1,5 @@
 compile:
-	./rebar compile skip_deps=true
+	erl -make
 
 setup:
 	./rebar get-deps && ./rebar compile
@@ -9,7 +9,6 @@ test:
 
 dialyze: compile
 	dialyzer -q -n ebin
-
 
 doc:
 	for i in doc/*.asciidoc; do ${MAKE} $${i%.asciidoc}.html ; done
