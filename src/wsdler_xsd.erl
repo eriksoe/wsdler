@@ -62,10 +62,10 @@ do_schema({{xsd,"schema"}, Attrs, Types}) ->
 
 -spec do_type(erlsomXML(), term()) -> xsdType().
 do_type({{xsd,"simpleType"}, Attrs, Restriction}, TgtNS) ->
-    TypeName     = list_to_atom(attribute("name",Attrs)),
-    Restrictions = lists:map(fun(X) -> do_restriction(X, TgtNS) end,
-			     strip_annotations(Restriction)),
-    {'SIMPLE_TYPE', {TgtNS,TypeName}, Restrictions};
+    TypeName = list_to_atom(attribute("name",Attrs)),
+    [Res]    = lists:map(fun(X) -> do_restriction(X, TgtNS) end,
+			 strip_annotations(Restriction)),
+    {'SIMPLE_TYPE', {TgtNS,TypeName}, Res};
 do_type({{xsd,"complexType"}, _Attrs, [{{xsd, "sequence"}, _Attr2, Elements}]}, TgtNS) ->
     Elems = lists:map(fun(X) -> do_element(X, TgtNS) end,
 		      strip_annotations(Elements)),
@@ -116,6 +116,10 @@ list_attribute(AName, Attrs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 test() ->
+    test1(),
+    test2().
+
+test1() ->
     XMLSchema =
 	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
         "     targetNamespace=\"http://www.example.org\""
@@ -127,6 +131,21 @@ test() ->
 	"      <xsd:maxInclusive value=\"99999\"/>"
 	"     </xsd:restriction>"
 	"  </xsd:simpleType>"
+        "</xsd:schema>",
+
+    NS = 'http://www.example.org',
+    Ast =
+	[{'SIMPLE_TYPE',
+	  {NS,myInteger},
+	  #restriction{base='xsd:integer', minInclusive=10000, maxInclusive=99999}}],
+    do_test(XMLSchema, Ast).
+
+test2() ->
+    XMLSchema =
+	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example.org\""
+        "     xmlns=\"http://www.example.org\""
+        "     elementFormDefault=\"qualified\">"
 	"  <xsd:complexType name=\"Address\" >"
 	"    <xsd:sequence>"
 	"      <xsd:element name=\"name\"   type=\"xsd:string\"/>"
@@ -138,12 +157,8 @@ test() ->
 	"  </xsd:complexType>"
         "</xsd:schema>",
 
-    NS = 'http://www.example.org',
     Ast =
-	[{'SIMPLE_TYPE',
-	  {NS,myInteger},
-	  #restriction{base='xsd:integer', minInclusive=10000, maxInclusive=99999}},
-	 {'COMPLEX_TYPE', name, [{'ELEMENT', name,   'xsd:string'},
+	[{'COMPLEX_TYPE', name, [{'ELEMENT', name,   'xsd:string'},
 				 {'ELEMENT', street, 'xsd:string'},
 				 {'ELEMENT', city,   'xsd:string'},
 				 {'ELEMENT', state,  'xsd:string'},
@@ -163,7 +178,6 @@ do_test(XMLSchema, AstExpected) ->
 	    io:format("*** Actual AST ***~n~p~n~n", [Ast]),
 	    error
     end.
-
 
 %%% Some experiments.....
 
