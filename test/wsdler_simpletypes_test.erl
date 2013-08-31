@@ -29,5 +29,4 @@ qtypename(LocalName) ->
 
 property_test_() ->
     {timeout, 60,
-     fun() -> ?assert(triq:module(?MODULE)) end
-    }.
+     fun() -> ?assert(triq:module(?MODULE)) end}.

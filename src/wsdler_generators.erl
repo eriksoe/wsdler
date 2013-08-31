@@ -7,8 +7,9 @@
 
 generator(#element{name=ElmName, type=Type}, WSDL) ->
     make_element(ElmName, [], generator(Type, WSDL));
-generator(#simpleType{type={named,TypeName}},
+generator(#simpleType{type={named,TypeName}}=ST,
           #wsdl{typedict=TypeDict}=WSDL) ->
+    io:format("DB| generator(#simpleType): ST=~p\n"),
     TypeDef = dict:fetch(TypeName, TypeDict),
     generator(TypeDef,WSDL);
 generator(#simpleType{type=Type},WSDL) ->
@@ -21,7 +22,7 @@ make_element({NS,Name}, Attrs, Content) ->
 
 generator(#simpleRestriction{enumeration=Enum}) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);
-generator(#simpleRestriction{base="boolean"}) ->
+generator(#simpleRestriction{base={xsd,"boolean"}}) ->
     oneof(["false","true","0","1"]);
 generator(#simpleRestriction{base="dateTime"}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern

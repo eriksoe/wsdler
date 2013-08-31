@@ -22,8 +22,10 @@ main(File) ->
 %%%========== Using "Simple DOM with nameFun" model of erlsom ==========
 -type(erlsom_dom() :: {_,[_],[_]}).
 dom_parse(File) ->
-    {ok, RawWSDL, _} = erlsom:simple_form_file(File, [{nameFun, fun symbolic_name/3}]),
-    WSDL = process_wsdl(RawWSDL),
+    {ok, XMLTree, _} =
+        erlsom:simple_form_file(File, [{nameFun, fun symbolic_name/3},
+                                       {qnamePredicate, fun qnamePred/1}]),
+    WSDL = process_wsdl(XMLTree),
     io:format("WSDL = ~p\n", [WSDL]),
     TypeNames = dict:fetch_keys(WSDL#wsdl.typedict),
     io:format("Types = ~p\n", [TypeNames]),
@@ -42,7 +44,9 @@ parse_xsd_file(FileName) ->
     parse_xsd(Text).
 
 parse_xsd(XMLText) ->
-    {ok,XMLTree,_Rest} = erlsom:simple_form(XMLText, [{nameFun, fun symbolic_name/3}]),
+    {ok,XMLTree,_Rest} = erlsom:simple_form(XMLText,
+                                            [{nameFun, fun symbolic_name/3},
+                                             {qnamePredicate, fun qnamePred/1}]),
     Types = process_types_children(XMLTree, []),
     {ok, build_type_dict(Types)}.
 
@@ -51,6 +55,8 @@ symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
 symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
 symbolic_name(Name, NS,       _) -> {NS, Name}.
 
+qnamePred({attribute, {xsd, "restriction"}, {_,"base"}}) -> true;
+qnamePred(_) -> false.
 
 -spec(process_wsdl/1 :: (erlsom_dom()) -> #definitions{}).
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
