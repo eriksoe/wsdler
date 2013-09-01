@@ -1,5 +1,8 @@
 -module(wsdler_xsd).
 -compile(export_all).
+
+-include("wsdler.hrl").
+
 -include_lib("triq/include/triq.hrl").
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Parsing XML %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -34,11 +37,11 @@ symbolic_name(Name, NS,       _) -> {NS, Name}.
 %%% Compiling erlsom XML to XSD Ast %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% record definitions must appear first.
--record(restriction, {base,
-		      minInclusive = none,
-		      maxInclusive = none
-		     }).
+%% %%% record definitions must appear first.
+%% -record(restriction, {base,
+%% 		      minInclusive = none,
+%% 		      maxInclusive = none
+%% 		     }).
 
 %%%%% XSD-types Ast %%%%%
 
@@ -86,10 +89,10 @@ do_restriction({{xsd,"restriction"}, Attrs, Restrictions}, TgtNS) ->
 
 do_restriction_field({{xsd, "minInclusive"}, Attrs, []}, Restriction, _TgtNS) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    Restriction#restriction{minInclusive=Length};
+    Restriction#restriction{minValue={Length,true}}; % TODO combine, not override
 do_restriction_field({{xsd, "maxInclusive"}, Attrs, []}, Restriction, _TgtNS) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    Restriction#restriction{maxInclusive=Length}.
+    Restriction#restriction{maxValue={Length,true}}. % TODO combine, not override
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -137,7 +140,9 @@ test1() ->
     Ast =
 	[{'SIMPLE_TYPE',
 	  {NS,myInteger},
-	  #restriction{base='xsd:integer', minInclusive=10000, maxInclusive=99999}}],
+	  #restriction{base='xsd:integer',
+                       minValue={10000,true},
+                       maxValue={99999,true}}}],
     do_test(XMLSchema, Ast).
 
 test2() ->
@@ -181,11 +186,14 @@ do_test(XMLSchema, AstExpected) ->
 
 %%% Some experiments.....
 
-gen_type ({'SIMPLE_TYPE', Name, #restriction{base='xsd:integer', minInclusive=Min, maxInclusive=Max}})
+gen_type ({'SIMPLE_TYPE', Name, #restriction{base='xsd:integer',
+                                             minValue={Min,true},
+                                             maxValue={Max,true}}})
   when is_integer(Min), is_integer(Max)->
-    ?LET(X, int(Min, Max),
+    ?LET(X, choose(Min, Max),
 	 io_lib:format("<~p>~p<~p\\>~n", [Name, X, Name])).
 
 gen_test() ->
     io:format(triq_dom:sample(
-		gen_type({'SIMPLE_TYPE', uha, #restriction{base='xsd:integer', minInclusive=3, maxInclusive=9}}))).
+		gen_type({'SIMPLE_TYPE', uha,
+                          #restriction{base='xsd:integer', minValue={3,true}, maxValue={9,true}}}))).

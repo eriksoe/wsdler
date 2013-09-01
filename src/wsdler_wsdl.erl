@@ -136,7 +136,7 @@ process_simpleType_children(L) ->
 process_simpleType({{xsd,"restriction"}, Attrs, Children}) ->
     BaseType = attribute("base", Attrs),
     lists:foldl(fun process_restriction_children/2,
-                #simpleRestriction{base=BaseType},
+                #restriction{base=BaseType},
                 Children);
 process_simpleType({{xsd,"list"}, Attrs, Children}) ->
     case [X || X={{xsd,"simpleType"},_,_} <- Children] of
@@ -157,39 +157,39 @@ process_simpleType({{xsd,"union"}, Attrs, Children}) ->
     end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
-process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #simpleRestriction{enumeration=EVs}=R) ->
+process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
-    R#simpleRestriction{enumeration=[EnumValue | EVs]};
-process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #simpleRestriction{pattern=undefined}=R) ->
+    R#restriction{enumeration=[EnumValue | EVs]};
+process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
     Pattern = attribute("value", Attrs),
-    R#simpleRestriction{pattern=Pattern};
-process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #simpleRestriction{minLength=undefined}=R) ->
+    R#restriction{pattern=Pattern};
+process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    R#simpleRestriction{minLength=Length};
-process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #simpleRestriction{maxLength=undefined}=R) ->
+    R#restriction{minLength=Length};
+process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #restriction{maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    R#simpleRestriction{maxLength=Length};
-process_restriction_children({{xsd, "length"}, Attrs, _Children}, #simpleRestriction{minLength=undefined, maxLength=undefined}=R) ->
+    R#restriction{maxLength=Length};
+process_restriction_children({{xsd, "length"}, Attrs, _Children}, #restriction{minLength=undefined, maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
-    R#simpleRestriction{minLength=Length, maxLength=Length};
-process_restriction_children({{xsd, "minExclusive"}, Attrs, _Children}, #simpleRestriction{minValue=undefined}=R) ->
+    R#restriction{minLength=Length, maxLength=Length};
+process_restriction_children({{xsd, "minExclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{minValue={Value,false}};
-process_restriction_children({{xsd, "minInclusive"}, Attrs, _Children}, #simpleRestriction{minValue=undefined}=R) ->
+    R#restriction{minValue={Value,false}};
+process_restriction_children({{xsd, "minInclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{minValue={Value,true}};
-process_restriction_children({{xsd, "maxExclusive"}, Attrs, _Children}, #simpleRestriction{maxValue=undefined}=R) ->
+    R#restriction{minValue={Value,true}};
+process_restriction_children({{xsd, "maxExclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{maxValue={Value,false}};
-process_restriction_children({{xsd, "maxInclusive"}, Attrs, _Children}, #simpleRestriction{maxValue=undefined}=R) ->
+    R#restriction{maxValue={Value,false}};
+process_restriction_children({{xsd, "maxInclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{maxValue={Value,true}};
-process_restriction_children({{xsd, "fractionDigits"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    R#restriction{maxValue={Value,true}};
+process_restriction_children({{xsd, "fractionDigits"}, Attrs, _Children}, #restriction{}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{fractionDigits=Value};
-process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #simpleRestriction{}=R) ->
+    R#restriction{fractionDigits=Value};
+process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #restriction{}=R) ->
     Value = attribute("value", Attrs),
-    R#simpleRestriction{totalDigits=Value}.
+    R#restriction{totalDigits=Value}.
 
 strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
     strip_annotations(Rest);

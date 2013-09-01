@@ -2,7 +2,7 @@
 -define(wsdler_hrl, included).
 
 %% Simpletype choices:
--record(simpleRestriction,
+-record(restriction,
         {base,
          pattern=undefined,
          enumeration=[],
@@ -15,7 +15,7 @@
         }).
 -record(simpleListType,  {itemType}).
 -record(simpleUnionType, {memberTypes}).
--type(simpleDerivation() :: #simpleRestriction{} | #simpleListType{} | #simpleUnionType{}).
+-type(simpleDerivation() :: #restriction{} | #simpleListType{} | #simpleUnionType{}).
 
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(complexType, {}).

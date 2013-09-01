@@ -7,9 +7,8 @@
 
 generator(#element{name=ElmName, type=Type}, WSDL) ->
     make_element(ElmName, [], generator(Type, WSDL));
-generator(#simpleType{type={named,TypeName}}=ST,
+generator(#simpleType{type={named,TypeName}},
           #wsdl{typedict=TypeDict}=WSDL) ->
-    io:format("DB| generator(#simpleType): ST=~p\n"),
     TypeDef = dict:fetch(TypeName, TypeDict),
     generator(TypeDef,WSDL);
 generator(#simpleType{type=Type},WSDL) ->
@@ -20,19 +19,19 @@ generator(Type,_) ->
 make_element({NS,Name}, Attrs, Content) ->
     {Name, [{'xmlns',NS} | Attrs], Content}.
 
-generator(#simpleRestriction{enumeration=Enum}) when Enum /= [] ->
+generator(#restriction{enumeration=Enum}) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);
-generator(#simpleRestriction{base={xsd,"boolean"}}) ->
+generator(#restriction{base={xsd,"boolean"}}) ->
     oneof(["false","true","0","1"]);
-generator(#simpleRestriction{base="dateTime"}) ->
+generator(#restriction{base="dateTime"}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern
     ?LET(X, resize(5.0,real()),
          format_years_from_now_as_datetime(math:pow(X,7)));
-generator(#simpleRestriction{base="string", pattern=Pattern}) when Pattern /= undefined ->
+generator(#restriction{base="string", pattern=Pattern}) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
     Regex = wsdler_regex:from_string(Pattern),
     wsdler_regex:to_generator(Regex);
-generator(#simpleRestriction{base="string", minLength=MinLen0, maxLength=MaxLen}) when MinLen0 /= undefined; MaxLen /= undefined ->
+generator(#restriction{base="string", minLength=MinLen0, maxLength=MaxLen}) when MinLen0 /= undefined; MaxLen /= undefined ->
     MinLen = if MinLen0==undefined -> 0;
                 true -> MinLen0
              end,
