@@ -31,18 +31,8 @@ generator(#restriction{base="string", pattern=Pattern}) when Pattern /= undefine
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
     Regex = wsdler_regex:from_string(Pattern),
     wsdler_regex:to_generator(Regex);
-generator(#restriction{base="string", minLength=MinLen0, maxLength=MaxLen}) when MinLen0 /= undefined; MaxLen /= undefined ->
-    MinLen = if MinLen0==undefined -> 0;
-                true -> MinLen0
-             end,
-    CharGen = frequency([{20,char()}, {2,choose(128,255)}, {1,unicode_char()}]),
-    if MaxLen==undefined ->
-            ?LET(X, int(),
-                 [CharGen || _ <- lists:seq(1,MinLen+abs(X))]);
-       true ->
-            ?LET(X, choose(MinLen,MaxLen),
-                 [CharGen || _ <- lists:seq(1,X)])
-    end;
+generator(#restriction{base={xsd,"string"}, minLength=MinLen, maxLength=MaxLen}) ->
+    string_gen(MinLen, MaxLen);
 generator(#simpleUnionType{memberTypes=Types}) ->
     oneof([generator(T) || T <- Types]);
 generator(_Other) ->
@@ -74,3 +64,21 @@ format_int(X,N,Acc) -> format_int(X div 10, N-1, [$0 + X rem 10 | Acc]).
 
 %%%========== STRING Generation ========================================
 %%% (Much heavy lifting done by the wsdler_regex module.)
+
+string_gen(MinLen0, MaxLen) ->
+    MinLen = if MinLen0==undefined -> 0;
+                true -> MinLen0
+             end,
+    if MaxLen==undefined ->
+            ?LET(X, int(),
+                 [char_gen() || _ <- lists:seq(1,MinLen+abs(X))]);
+       true ->
+            ?LET(X, choose(MinLen,MaxLen),
+                 [char_gen() || _ <- lists:seq(1,X)])
+    end.
+
+char_gen() ->
+    frequency([{20,char()},
+               {5,choose(128,255)},
+               {2,choose(256,16#D7FF)},
+               {1,choose(16#E000,16#FFFD)}]).

@@ -10,6 +10,11 @@ prop_boolean_type() ->
     ?FORALL(X, simple_type_generator("xsd:boolean"),
             lists:member(X, ["0","1","false","true"])).
 
+prop_string_type() ->
+    ?FORALL(X, simple_type_generator("xsd:string"),
+            lists:all(fun(C)->is_integer(C) andalso C>=0 andalso C<16#FFFE end,
+                     X)).
+
 simple_type_generator(BaseType) ->
     SchemaSrc = schema(BaseType),
     {ok,TypeDict} = wsdler_wsdl:parse_xsd(SchemaSrc),
