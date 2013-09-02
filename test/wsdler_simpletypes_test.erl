@@ -15,18 +15,35 @@ prop_string_type() ->
             lists:all(fun(C)->is_integer(C) andalso C>=0 andalso C<16#FFFE end,
                      X)).
 
+prop_string_enum_type() ->
+    ?FORALL(Enum, non_empty(list(list(choose($A,$Z)))), % List of easy strings
+            begin
+                %% io:format(user, "Enum=~p\n", [Enum]),
+                EnumSpec = ["<xsd:enumeration value=\""++S++"\"/>"
+                            || S <- Enum],
+                ?FORALL(X, simple_type_generator("xsd:string", EnumSpec),
+                        lists:member(X, Enum))
+            end).
+
 simple_type_generator(BaseType) ->
-    SchemaSrc = schema(BaseType),
+    simple_type_generator(BaseType, "").
+simple_type_generator(BaseType, RestrictionBody) ->
+    SchemaSrc = schema(BaseType, RestrictionBody),
+    %% io:format(user, "SchemaSrc=~p\n", [SchemaSrc]),
     {ok,TypeDict} = wsdler_wsdl:parse_xsd(SchemaSrc),
     Type = dict:fetch(qtypename("T"), TypeDict),
     wsdler_generators:generator(Type).
 
-schema(BaseType) ->
+schema(BaseType, Body) ->
     "<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
         " targetNamespace=\"http://www.example.org\""
         " xmlns=\"http://www.example.org\""
         " elementFormDefault=\"qualified\">"
-        "<xsd:simpleType name=\"T\"><xsd:restriction base=\""++BaseType++"\"/></xsd:simpleType>"
+        "  <xsd:simpleType name=\"T\">"
+        "    <xsd:restriction base=\""++BaseType++"\">"
+        ++ lists:flatten(Body) ++
+        "    </xsd:restriction>"
+        "  </xsd:simpleType>"
         "</xsd:schema>".
 
 qtypename(LocalName) ->
