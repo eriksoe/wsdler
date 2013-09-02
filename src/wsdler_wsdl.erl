@@ -1,30 +1,20 @@
 -module(wsdler_wsdl).
-%%% Parsing of WSDL files.
+
+%%% Purpose: Parsing of WSDL files into internal model.
 
 -compile(export_all).
 
--include_lib("xmerl/include/xmerl.hrl").
+%%-include_lib("xmerl/include/xmerl.hrl").
 -include("wsdler.hrl").
 
 %%% Namespaces:
--define(XSD_NS0, "{http://www.w3.org/2001/XMLSchema}").
--define(WSDL_NS0, "{http://schemas.xmlsoap.org/wsdl/}").
-
--define(XSD_NS, "http://www.w3.org/2001/XMLSchema").
--define(WSDL_NS, "http://schemas.xmlsoap.org/wsdl/").
--define(SOAP_NS, "http://schemas.xmlsoap.org/wsdl/soap/").
-
 
 main(File) ->
     _WSDL = dom_parse(File).
 
-
-%%%========== Using "Simple DOM with nameFun" model of erlsom ==========
 -type(erlsom_dom() :: {_,[_],[_]}).
 dom_parse(File) ->
-    {ok, XMLTree, _} =
-        erlsom:simple_form_file(File, [{nameFun, fun symbolic_name/3},
-                                       {qnamePredicate, fun qnamePred/1}]),
+    {ok, XMLTree} = wsdler_xml:parse_file(File),
     WSDL = process_wsdl(XMLTree),
     io:format("WSDL = ~p\n", [WSDL]),
     TypeNames = dict:fetch_keys(WSDL#wsdl.typedict),
@@ -44,19 +34,9 @@ parse_xsd_file(FileName) ->
     parse_xsd(Text).
 
 parse_xsd(XMLText) ->
-    {ok,XMLTree,_Rest} = erlsom:simple_form(XMLText,
-                                            [{nameFun, fun symbolic_name/3},
-                                             {qnamePredicate, fun qnamePred/1}]),
+    {ok,XMLTree} = wsdler_xml:parse_string(XMLText),
     Types = process_types_children(XMLTree, []),
     {ok, build_type_dict(Types)}.
-
-symbolic_name(Name, ?XSD_NS , _) -> {xsd,  Name};
-symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
-symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
-symbolic_name(Name, NS,       _) -> {NS, Name}.
-
-qnamePred({attribute, {xsd, "restriction"}, {_,"base"}}) -> true;
-qnamePred(_) -> false.
 
 -spec(process_wsdl/1 :: (erlsom_dom()) -> #definitions{}).
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
