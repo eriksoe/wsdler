@@ -18,7 +18,6 @@ prop_string_type() ->
 prop_string_enum_type() ->
     ?FORALL(Enum, non_empty(list(list(choose($A,$Z)))), % List of easy strings
             begin
-                %% io:format(user, "Enum=~p\n", [Enum]),
                 EnumSpec = ["<xsd:enumeration value=\""++S++"\"/>"
                             || S <- Enum],
                 ?FORALL(X, simple_type_generator("xsd:string", EnumSpec),
@@ -29,7 +28,6 @@ simple_type_generator(BaseType) ->
     simple_type_generator(BaseType, "").
 simple_type_generator(BaseType, RestrictionBody) ->
     SchemaSrc = schema(BaseType, RestrictionBody),
-    %% io:format(user, "SchemaSrc=~p\n", [SchemaSrc]),
     {ok,TypeDict} = wsdler_wsdl:parse_xsd(SchemaSrc),
     Type = dict:fetch(qtypename("T"), TypeDict),
     wsdler_generators:generator(Type).
