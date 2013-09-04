@@ -10,7 +10,7 @@ xsd_spec0_examples_test_() ->
     foreach(Text, fun gen_test/1, []).
 
 gen_test(XML) ->
-    fun() -> ?assertMatch({ok, _}, wsdler_xsd:do_schema(XML)) end.
+    fun() -> ?assertMatch([_], wsdler_xsd:do_schema(XML)) end.
 
 foreach("\n"++Rest, Fun, Acc) ->
     foreach(Rest, Fun, Acc);
