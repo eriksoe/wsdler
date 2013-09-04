@@ -1,0 +1,9 @@
+==== TO DO: ====
+- _wsdl: split into _xsd and _wsdl.
+- Handle <xs:element> element, as well as <xs element ref="id"/> references.
+- Handle complexContent (in complexType).
+
+
+==== DONE: ====
+- _wsdl: split into _xml (DOM parsing) and rest.
+
