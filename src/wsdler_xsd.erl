@@ -60,7 +60,7 @@ symbolic_name(Name, NS,       _) -> {NS, Name}.
 
 -spec do_schema(erlsomXML()) -> [xsdType()].
 do_schema({{xsd,"schema"}, Attrs, Types}) ->
-    TgtNS = list_to_atom(attribute("targetNamespace", Attrs)),
+    TgtNS = list_to_atom(attribute("targetNamespace", Attrs, "none")),
     lists:map(fun (X) -> do_type(X, TgtNS) end, strip_annotations(Types)).
 
 -spec do_type(erlsomXML(), term()) -> xsdType().
@@ -100,6 +100,12 @@ strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
     strip_annotations(Rest);
 strip_annotations(X) ->
     X.
+
+attribute(AName, Attrs, Default) ->
+    case lists:keyfind({"", AName}, 1, Attrs) of
+        {_, Value} -> Value;
+        false -> Default
+    end.
 
 attribute(AName, Attrs) ->
     case lists:keyfind({"", AName}, 1, Attrs) of

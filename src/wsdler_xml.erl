@@ -1,6 +1,6 @@
 -module(wsdler_xml).
 
--export([parse_file/1, parse_string/1]).
+-export([parse_file/1, parse_string/1, erlsom_options/0]).
 
 %%% Purpose: XML handling - parsing and unparsing of XML.
 %%%

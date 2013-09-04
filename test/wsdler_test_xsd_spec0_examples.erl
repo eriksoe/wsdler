@@ -17,5 +17,5 @@ foreach("\n"++Rest, Fun, Acc) ->
 foreach([], _Fun, Acc) ->
     lists:reverse(Acc);
 foreach(Text, Fun, Acc) ->
-    {ok,XML,Rest} = erlsom:simple_form(Text),
+    {ok,XML,Rest} = erlsom:simple_form(Text, wsdler_xml:erlsom_options()),
     foreach(Rest, Fun, [Fun(XML)|Acc]).
