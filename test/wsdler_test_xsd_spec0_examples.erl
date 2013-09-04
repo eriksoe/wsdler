@@ -4,35 +4,18 @@
 
 -compiler([export_all]).
 
-xsd_spec0_examples_test() ->
+xsd_spec0_examples_test_() ->
     FileName = code:lib_dir(wsdler,test)++"/test-xsd.xml",
     {ok,Text} = file:read_file(FileName),
-    Res = case foreach(Text, fun do/1, {0,0}) of
-	      {SuccessCounter, 0} ->
-		  io:format(user, "Success.  Success runs= ~p~n", [SuccessCounter]),
-		  true;
-	      {SuccessCounter, ErrorCounter} ->
-		  io:format(user, "Failure.  Success runs=~p.  Failure runs=~p~n", [SuccessCounter, ErrorCounter]),
-		  false
-	  end,
-    ?assert(Res).
+    foreach(Text, fun do/1, []).
 
 do(XML) ->
-    wsdler_xsd:do_schema(XML).
+    fun() -> ?assertMatch({ok, _}, wsdler_xsd:do_schema(XML)) end.
 
-foreach("\n"++Rest, Fun, Counters) ->
-    foreach(Rest, Fun, Counters);
-foreach([], Fun, Counters) ->
-    Counters;
-foreach(Text, Fun, {SuccessCounter, ErrorCounter}) ->
+foreach("\n"++Rest, Fun, Acc) ->
+    foreach(Rest, Fun, Acc);
+foreach([], _Fun, Acc) ->
+    lists:reverse(Acc);
+foreach(Text, Fun, Acc) ->
     {ok,XML,Rest} = erlsom:simple_form(Text),
-    try
-	Fun(XML),
-	%% Do some more...
-	foreach(Rest, Fun, {SuccessCounter+1, ErrorCounter})
-    catch
-	Type:Reason ->
-	    io:format(user, "~nError running test: type=~p reason=~p.~nStack trace: ~p~n", [Type, Reason, erlang:get_stacktrace()]),
-	    foreach(Rest, Fun, {SuccessCounter, ErrorCounter+1})
-    end.
-
+    foreach(Rest, Fun, [Fun(XML)|Acc]).
