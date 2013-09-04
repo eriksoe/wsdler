@@ -7,9 +7,9 @@
 xsd_spec0_examples_test_() ->
     FileName = code:lib_dir(wsdler,test)++"/test-xsd.xml",
     {ok,Text} = file:read_file(FileName),
-    foreach(Text, fun do/1, []).
+    foreach(Text, fun gen_test/1, []).
 
-do(XML) ->
+gen_test(XML) ->
     fun() -> ?assertMatch({ok, _}, wsdler_xsd:do_schema(XML)) end.
 
 foreach("\n"++Rest, Fun, Acc) ->
