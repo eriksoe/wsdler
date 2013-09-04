@@ -10,12 +10,21 @@ xsd_spec0_examples_test_() ->
     Schemas = split_schemas(Text),
     {foreach, fun()->ok end,
      [{lists:flatten(io_lib:format("Schema #~p", [Nr])), % title
-       fun() -> test_schema(Schema) end}
+       test_schema(Schema)}
       || {Nr, Schema} <- Schemas]}.
     %% foreach(Text, fun gen_test/1, []).
 
 test_schema(XML) ->
-    fun() -> ?assertMatch([_], wsdler_xsd:do_schema(XML)) end.
+    fun() ->
+            try ?assertMatch([_], wsdler_xsd:do_schema(XML))
+            catch
+                Cls:Err ->
+                    Trace = erlang:get_stacktrace(),
+                    io:format(user, "Exception: ~s:~p\n  Trace: ~p\n",
+                              [Cls,Err,Trace]),
+                    erlang:raise(Cls,Err,Trace)
+            end
+    end.
 
 split_schemas(Text) ->
     split_schemas(Text, 0, []).
