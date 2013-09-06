@@ -213,6 +213,29 @@ list_attribute(AName, Attrs) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
+
+simpleType_test() ->
+    XMLSchema =
+	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example.org\""
+        "     xmlns=\"http://www.example.org\""
+        "     elementFormDefault=\"qualified\">"
+	"  <xsd:simpleType name=\"myInteger\">"
+	"    <xsd:restriction base=\"xsd:integer\">"
+	"      <xsd:minInclusive value=\"10000\"/>"
+	"      <xsd:maxInclusive value=\"99999\"/>"
+	"     </xsd:restriction>"
+	"  </xsd:simpleType>"
+        "</xsd:schema>",
+
+    NS = "http://www.example.org",
+    Ast =
+	[{{NS,"myInteger"},
+          #restriction{base={xsd,"integer"},
+                       minValue={10000,true},
+                       maxValue={99999,true}}}],
+    check_test_example(XMLSchema, Ast).
+
 complexType_test() ->
     XMLSchema =
 	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
@@ -244,5 +267,5 @@ complexType_test() ->
 check_test_example(XMLSchema, AstExpected) ->
     {ok,XML} = wsdler_xml:parse_string(XMLSchema),
     Ast = (catch process_schema(XML)),
-    ?assertEqual(catch AstExpected, catch Ast).
+    ?assertEqual(AstExpected, Ast).
 -endif.
