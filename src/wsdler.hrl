@@ -18,8 +18,8 @@
 -type(simpleDerivation() :: #restriction{} | #simpleListType{} | #simpleUnionType{}).
 
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
--record(complexType, {}).
 -record(element, {name :: _, type :: #simpleType{}}).
+-record(complexType, {children :: [#element{}]}).
 
 -type(typedef() :: #simpleType{} | #complexType{}).
 

@@ -38,6 +38,8 @@ parse_xsd(XMLText) ->
     Types = process_types_children(XMLTree, []),
     {ok, build_type_dict(Types)}.
 
+%%%%%%%%%%%%% WSDL parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -spec(process_wsdl/1 :: (erlsom_dom()) -> #definitions{}).
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
     close_definitions(lists:foldl(fun process_defs_children/2, #definitions{}, Children)).
@@ -70,10 +72,16 @@ process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
     add_to_field(Acc, #definitions.services, {service}).
 %%     [service|Acc].
 
-process_types_children({{xsd,"schema"}, Attrs, Children}, Acc) ->
+process_types_children({{xsd,"schema"}, _, _}=SchemaNode, Acc) ->
+    Types = process_schema(SchemaNode),
+    Types ++ Acc.
+
+%%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+process_schema({{xsd,"schema"}, Attrs, Children}) ->
     TgtNS = attribute("targetNamespace", Attrs),
     Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
-                        Acc,
+                        [],
                         Children),
     Types.
 
@@ -103,11 +111,20 @@ process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
 %%             io:format("** Generator error: ~p\n", [Reason])
 %%     end,
     [{{TgtNS,TypeName},Type} | Acc];
-process_schema_children({{xsd,"complexType"}, Attrs, _Children}, Acc, TgtNS) ->
+process_schema_children({{xsd,"complexType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
 %%     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    [{{TgtNS,TypeName},dummy} | Acc].
+    CT = #complexType{children = process_complexType_children(Children)},
+    [{{TgtNS,TypeName},CT} | Acc].
 
+process_complexType_children([{{xsd,"sequence"},_,Children}]) ->
+    [process_element(E) || E <- Children].
+
+process_element({{xsd,"element"}, Attrs, _Children}) ->
+    ElemName = attribute("name",Attrs),
+    #element{name=ElemName}; % TODO: type
+process_element(X) ->
+    error({badarg, process_element, X}).
 
 process_simpleType_children(L) ->
     [SimpleTypeChildElement] = strip_annotations(L),
@@ -115,7 +132,7 @@ process_simpleType_children(L) ->
 
 process_simpleType({{xsd,"restriction"}, Attrs, Children}) ->
     BaseType = attribute("base", Attrs),
-    lists:foldl(fun process_restriction_children/2,
+    lists:foldl(fun process_restriction_child/2,
                 #restriction{base=BaseType},
                 Children);
 process_simpleType({{xsd,"list"}, Attrs, Children}) ->
@@ -123,7 +140,7 @@ process_simpleType({{xsd,"list"}, Attrs, Children}) ->
         [] ->
             ItemType = {named,attribute("itemType", Attrs)};
         [ItemTypeElement] ->
-            ItemType = process_simpleType_children(ItemTypeElement)
+            ItemType = process_simpleType_children(ItemTypeElement) % ?
     end,
     #simpleListType{itemType=ItemType};
 process_simpleType({{xsd,"union"}, Attrs, Children}) ->
@@ -137,37 +154,37 @@ process_simpleType({{xsd,"union"}, Attrs, Children}) ->
     end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
-process_restriction_children({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
+process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#restriction{enumeration=[EnumValue | EVs]};
-process_restriction_children({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
+process_restriction_child({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
     Pattern = attribute("value", Attrs),
     R#restriction{pattern=Pattern};
-process_restriction_children({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
+process_restriction_child({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{minLength=Length};
-process_restriction_children({{xsd, "maxLength"}, Attrs, _Children}, #restriction{maxLength=undefined}=R) ->
+process_restriction_child({{xsd, "maxLength"}, Attrs, _Children}, #restriction{maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{maxLength=Length};
-process_restriction_children({{xsd, "length"}, Attrs, _Children}, #restriction{minLength=undefined, maxLength=undefined}=R) ->
+process_restriction_child({{xsd, "length"}, Attrs, _Children}, #restriction{minLength=undefined, maxLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{minLength=Length, maxLength=Length};
-process_restriction_children({{xsd, "minExclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
+process_restriction_child({{xsd, "minExclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{minValue={Value,false}};
-process_restriction_children({{xsd, "minInclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
+process_restriction_child({{xsd, "minInclusive"}, Attrs, _Children}, #restriction{minValue=undefined}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{minValue={Value,true}};
-process_restriction_children({{xsd, "maxExclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
+process_restriction_child({{xsd, "maxExclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{maxValue={Value,false}};
-process_restriction_children({{xsd, "maxInclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
+process_restriction_child({{xsd, "maxInclusive"}, Attrs, _Children}, #restriction{maxValue=undefined}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{maxValue={Value,true}};
-process_restriction_children({{xsd, "fractionDigits"}, Attrs, _Children}, #restriction{}=R) ->
+process_restriction_child({{xsd, "fractionDigits"}, Attrs, _Children}, #restriction{}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{fractionDigits=Value};
-process_restriction_children({{xsd, "totalDigits"}, Attrs, _Children}, #restriction{}=R) ->
+process_restriction_child({{xsd, "totalDigits"}, Attrs, _Children}, #restriction{}=R) ->
     Value = attribute("value", Attrs),
     R#restriction{totalDigits=Value}.
 
@@ -189,3 +206,43 @@ list_attribute(AName, Attrs) ->
         {_, Value} -> string:tokens(Value, " ");
         false -> error({no_such_attribute, AName, Attrs})
     end.
+
+
+%%%======================================================================
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+complexType_test() ->
+    XMLSchema =
+	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example.org\""
+        "     xmlns=\"http://www.example.org\""
+        "     elementFormDefault=\"qualified\">"
+	"  <xsd:complexType name=\"Address\" >"
+	"    <xsd:sequence>"
+	"      <xsd:element name=\"name\"   type=\"xsd:string\"/>"
+	"      <xsd:element name=\"street\" type=\"xsd:string\"/>"
+	"      <xsd:element name=\"city\"   type=\"xsd:string\"/>"
+	"      <xsd:element name=\"state\"  type=\"xsd:string\"/>"
+	"      <xsd:element name=\"zip\"    type=\"xsd:decimal\"/>"
+	"    </xsd:sequence>"
+	"  </xsd:complexType>"
+        "</xsd:schema>",
+
+    Ast =
+        [{{"http://www.example.org", "Address"},
+          #complexType{children=[
+                                 #element{name="name"}, % TODO: types
+                                 #element{name="street"},
+                                 #element{name="city"},
+                                 #element{name="state"},
+                                 #element{name="zip"}
+                                ]}}],
+    check_test_example(XMLSchema, Ast).
+
+check_test_example(XMLSchema, AstExpected) ->
+    {ok,XML} = wsdler_xml:parse_string(XMLSchema),
+    Ast = (catch process_schema(XML)),
+    ?assertEqual(catch AstExpected, catch Ast).
+-endif.
