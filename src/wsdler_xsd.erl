@@ -219,9 +219,8 @@ complexType_test() ->
                                 ]}}],
     check_test_example(XMLSchema, Ast).
 
-check_test_example(XMLSchema, AstExpected) ->
-    {ok,XML} = wsdler_xml:parse_string(XMLSchema),
-    Ast = (catch parse_string(XML)),
-    ?assertEqual(AstExpected, Ast).
+check_test_example(XMLSchema, ExpectedTypes) ->
+    {ok,TypeDict} = (catch wsdler_xsd:parse_string(XMLSchema)),
+    ?assertEqual(ExpectedTypes, lists:sort(dict:to_list(TypeDict))).
 
 -endif.
