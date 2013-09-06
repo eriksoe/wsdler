@@ -1,6 +1,7 @@
 -module(wsdler_xml).
 
 -export([parse_file/1, parse_string/1, erlsom_options/0]).
+-export([attribute/2, attribute/3, list_attribute/2]).
 
 %%% Purpose: XML handling - parsing and unparsing of XML.
 %%%
@@ -26,6 +27,24 @@ handle_parsing_result({ok, XMLTree, _Remainder}) ->
     {ok, XMLTree};
 handle_parsing_result({error, _}=Err) ->
     Err.
+
+attribute(AName, Attrs) ->
+    case lists:keyfind({"", AName}, 1, Attrs) of
+        {_, Value} -> Value;
+        false -> error({no_such_attribute, AName, Attrs})
+    end.
+
+attribute(AName, Attrs, Default) ->
+    case lists:keyfind({"", AName}, 1, Attrs) of
+        {_, Value} -> Value;
+        false      -> Default
+    end.
+
+list_attribute(AName, Attrs) ->
+    case lists:keyfind({"", AName}, 1, Attrs) of
+        {_, Value} -> string:tokens(Value, " ");
+        false -> error({no_such_attribute, AName, Attrs})
+    end.
 
 %%%====================
 symbolic_name(Name, ?XSD_NS , _) -> {xsd,  Name};

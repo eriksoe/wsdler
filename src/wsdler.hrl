@@ -39,4 +39,6 @@
           typedict :: dict:dict(_,_)
                       }).
 
+-type(erlsom_dom() :: {_,[_],[_]}).
+
 -endif.

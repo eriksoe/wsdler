@@ -5,7 +5,7 @@
 -compiler([export_all]).
 
 xsd_spec0_examples_test_() ->
-    FileName = code:lib_dir(wsdler,test)++"/test-xsd.xml",
+    FileName = filename:join(code:lib_dir(wsdler,test), "test-xsd.xml"),
     {ok,Text} = file:read_file(FileName),
     Schemas = split_schemas(Text),
     {foreach, fun()->ok end,
@@ -16,7 +16,7 @@ xsd_spec0_examples_test_() ->
 
 test_schema(XML) ->
     fun() ->
-            try ?assertMatch([_], wsdler_xsd:do_schema(XML))
+            try ?assertMatch([_], wsdler_xsd:parse_schema_node(XML))
             catch
                 Cls:Err ->
                     Trace = erlang:get_stacktrace(),
