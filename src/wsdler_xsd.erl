@@ -30,7 +30,6 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}) ->
                         strip_annotations(Children)),
     build_type_dict(Types).
 
-
 %%%%%% <schema> children: %%%%%%%%%%%%%%%%%%%%
 %%% (include | import | redefine | annotation)*, ("schemaTop"*, annotation*)
 %%% where
