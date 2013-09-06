@@ -1,11 +1,11 @@
 compile:
-	ERL_LIBS=$ERL_LIBS:deps/ erl -make
+	ERL_LIBS=$ERL_LIBS:deps/ erl -make </dev/null
 
 setup:
-	./rebar get-deps && ./rebar compile
+	./rebar get-deps </dev/null && ./rebar compile </dev/null
 
 test:
-	./rebar eunit skip_deps=true
+	./rebar eunit skip_deps=true </dev/null
 
 dialyze: compile
 	dialyzer -q -n ebin
