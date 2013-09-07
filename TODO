@@ -1,4 +1,6 @@
 ==== TO DO: ====
+XSD:
+- Create index of named <element>s and <group>s.
 - Handle <xs:element> element, as well as <xs element ref="id"/> references.
 - Handle complexContent (in complexType).
 
