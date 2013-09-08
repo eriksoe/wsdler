@@ -18,8 +18,21 @@
 -type(simpleDerivation() :: #restriction{} | #simpleListType{} | #simpleUnionType{}).
 
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
--record(element, {name :: _, type :: #simpleType{}}).
--record(complexType, {children :: [#element{}]}).
+-record(element, {name :: _,
+		  type :: #simpleType{}}).
+
+-record(elementRef, {ref :: qname()}).
+
+-record(attribute, {name :: ncname(),
+		    type :: qname(),
+		    use=optional :: optional | prohibited | required}).
+
+-type(ncname() :: string()). %% "non-colonized" name
+-type(anyURI() :: string()).
+-type(qname() :: {anyURI(), ncname()}).
+-record(simpleContentExtension, {base :: qname(),
+				 attributes :: [#attribute{}]}).
+-record(complexType, {children :: [#element{} | #elementRef{}] | #simpleContentExtension{}}).
 
 -type(typedef() :: #simpleType{} | #complexType{}).
 

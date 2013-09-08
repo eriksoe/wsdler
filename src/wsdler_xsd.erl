@@ -65,7 +65,7 @@ process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
 process_schema_children({{xsd,"complexType"}, Attrs, Children}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
 %%     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    CT = #complexType{children = process_complexType_children(Children)},
+    CT = #complexType{children = process_complexType_children(strip_annotations(Children))},
     [{{TgtNS,TypeName},CT} | Acc].
 
 %%%%%% <complexType> children: %%%%%%%%%%%%%%%%%%%%
@@ -76,13 +76,30 @@ process_schema_children({{xsd,"complexType"}, Attrs, Children}, Acc, TgtNS) ->
 %%%   typeDefParticle ::= ( group | all | choice | sequence )
 %%%   attrDecls ::= ( (attribute | attributeGroup)*, anyAttribute? )
 %%%
-process_complexType_children([{{xsd,"sequence"},_,Children} | Attributes]) ->
+process_complexType_children([{{xsd,"sequence"},_,Children} | _Attributes]) ->
     %% TODO: Handle Attributes
-    [process_element(E) || E <- Children].
+    [process_element(E) || E <- Children];
+process_complexType_children([{{xsd,"simpleContent"},_,[Child]}]) -> %% TODO, only one child for now
+    process_simpleContent_child(Child).
+process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
+    BaseTypeQname = attribute("base", Attributes),
+    #simpleContentExtension{base = BaseTypeQname,
+			   attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+
+process_attribute({{xsd, "attribute"},Attributes,[]}) ->
+    Name = attribute("name", Attributes),
+    Type = attribute("type", Attributes),
+    Use  = attribute("use", Attributes),
+    #attribute{name=Name, type=Type, use=Use}.
 
 process_element({{xsd,"element"}, Attrs, _Children}) ->
-    ElemName = attribute("name",Attrs),
-    #element{name=ElemName}; % TODO: type
+    case attribute("ref", Attrs, none) of
+	none ->
+	    ElemName = attribute("name",Attrs),
+	    #element{name=ElemName}; % TODO: type
+	Qname ->
+	    #elementRef{ref=Qname}
+    end;
 process_element(X) ->
     error({badarg, process_element, X}).
 

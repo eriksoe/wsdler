@@ -56,4 +56,9 @@ process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
 
 process_types_children({{xsd,"schema"}, _, _}=SchemaNode, Acc) ->
     Types = wsdler_xsd:parse_schema_node(SchemaNode),
-    wsdler_xsd:merge_schemas(Types,Acc).
+    case Acc of
+	[] ->
+	    Types;
+	_ ->
+	    wsdler_xsd:merge_schemas(Types,Acc)
+    end.
