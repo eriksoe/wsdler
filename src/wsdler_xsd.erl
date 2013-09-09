@@ -42,7 +42,7 @@ build_type_dict(Types) when is_list(Types) ->
 %%%   redefinable ::= (simpleType | complexType | group | attributeGroup)
 %%%
 process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
-%%     io:format("DB| import: ~p\n", [_Attrs]),
+    %%     io:format("DB| import: ~p\n", [_Attrs]),
     Acc;
 process_schema_children(E={{xsd,"element"}, _, _}, Acc, TgtNS) ->
     Element = #element{name=Name} = process_element(E),
@@ -97,7 +97,6 @@ process_sequence_children(Node={{xsd, "element"},_,_}) ->
 process_sequence_children(Node={{xsd, "choice"},_,_}) ->
     process_choice(Node).
 
-
 process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
@@ -128,7 +127,6 @@ process_element({{xsd,"element"}, Attrs, Children}) ->
 	[] ->
 	    #element{name=ElemName}
 end.
-
 process_element_child(Node={{xsd, "simpleType"},_,_}) ->
     process_simpleType(Node);
 process_element_child(Node={{xsd, "complexType"},_,_}) ->
@@ -136,7 +134,6 @@ process_element_child(Node={{xsd, "complexType"},_,_}) ->
 
 process_choice({{xsd,"choice"}, _Attr, Children}) ->
     #choice{content=[process_choice_children(Child) || Child <- Children]}.
-
 process_choice_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
 process_choice_children(Node={{xsd, "choice"},_,_}) ->
@@ -152,12 +149,8 @@ process_choice_children(Node={{xsd, "element"},_,_}) ->
 process_simpleType({{xsd, "simpleType"}, _Attr, Children}) ->
     [Child] = strip_annotations(Children),
     process_simpleType_child(Child).
-
 process_simpleType_child({{xsd,"restriction"}, Attrs, Children}) ->
-    BaseType = attribute("base", Attrs),
-    lists:foldl(fun process_restriction_child/2,
-                #restriction{base=BaseType},
-                Children);
+    process_restriction_children(attribute("base", Attrs), Children);
 process_simpleType_child({{xsd,"list"}, Attrs, Children}) ->
     ItemType = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
 		   [] ->
@@ -171,19 +164,20 @@ process_simpleType_child({{xsd,"union"}, Attrs, Children}) ->
 		      [] ->
 			  [{named,X}
 			   || X<-list_attribute("memberTypes", Attrs)];
-        MemberTypeElements ->
+		      MemberTypeElements ->
 			  [process_simpleType_child(strip_annotations(X))
                            || X <-MemberTypeElements]
 		  end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
+process_restriction_children(Base, Children)->
+        lists:foldl(fun process_restriction_child/2, #restriction{base=Base}, Children).
 process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#restriction{enumeration=[EnumValue | EVs]};
 process_restriction_child({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
     Pattern = attribute("value", Attrs),
     R#restriction{pattern=Pattern};
-
 process_restriction_child({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{minLength=Length};
@@ -216,65 +210,3 @@ strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
     strip_annotations(Rest);
 strip_annotations(X) ->
     X.
-
-%%%======================================================================
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
-
-simpleType_test() ->
-    XMLSchema =
-	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
-        "     targetNamespace=\"http://www.example.org\""
-        "     xmlns=\"http://www.example.org\""
-        "     elementFormDefault=\"qualified\">"
-	"  <xsd:simpleType name=\"myInteger\">"
-	"    <xsd:restriction base=\"xsd:integer\">"
-	"      <xsd:minInclusive value=\"10000\"/>"
-	"      <xsd:maxInclusive value=\"99999\"/>"
-	"     </xsd:restriction>"
-	"  </xsd:simpleType>"
-        "</xsd:schema>",
-
-    NS = "http://www.example.org",
-    Ast =
-	[{{NS,"myInteger"},
-          #restriction{base={xsd,"integer"},
-                       minValue={10000,true},
-                       maxValue={99999,true}}}],
-    check_test_example(XMLSchema, Ast).
-
-complexType_test() ->
-    XMLSchema =
-	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
-        "     targetNamespace=\"http://www.example.org\""
-        "     xmlns=\"http://www.example.org\""
-        "     elementFormDefault=\"qualified\">"
-	"  <xsd:complexType name=\"Address\" >"
-	"    <xsd:sequence>"
-	"      <xsd:element name=\"name\"   type=\"xsd:string\"/>"
-	"      <xsd:element name=\"street\" type=\"xsd:string\"/>"
-	"      <xsd:element name=\"city\"   type=\"xsd:string\"/>"
-	"      <xsd:element name=\"state\"  type=\"xsd:string\"/>"
-	"      <xsd:element name=\"zip\"    type=\"xsd:decimal\"/>"
-	"    </xsd:sequence>"
-	"  </xsd:complexType>"
-        "</xsd:schema>",
-
-    Ast =
-        [{{"http://www.example.org", "Address"},
-          #complexType{children=[
-                                 #element{name="name"}, % TODO: types
-                                 #element{name="street"},
-                                 #element{name="city"},
-                                 #element{name="state"},
-                                 #element{name="zip"}
-                                ]}}],
-    check_test_example(XMLSchema, Ast).
-
-check_test_example(XMLSchema, ExpectedTypes) ->
-    {ok,TypeDict} = (catch wsdler_xsd:parse_string(XMLSchema)),
-    ?assertEqual(ExpectedTypes, lists:sort(dict:to_list(TypeDict))).
-
--endif.
