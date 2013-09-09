@@ -25,7 +25,7 @@ generator(#restriction{base={xsd,"boolean"}}) ->
     oneof(["false","true","0","1"]);
 generator(#restriction{base="dateTime"}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern
-    ?LET(X, resize(5.0,real()),
+    ?LET(X, resize(5,real()),
          format_years_from_now_as_datetime(math:pow(X,7)));
 generator(#restriction{base="string", pattern=Pattern}) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
