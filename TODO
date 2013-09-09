@@ -4,6 +4,7 @@ XSD:
 - Handle import/include/redefine.
 - Integrate phase 1: "flatten and collect"
 - Phase 2a - Annotate simpleTypes with built-in ancestor type.
+- Fix test sample file wrt. namespaces.
 - Resolve all TODOs.
 
 ==== DONE: ====
