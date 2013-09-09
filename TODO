@@ -4,6 +4,7 @@ XSD:
 - Handle <xs:element> element, as well as <xs element ref="id"/> references.
 - Handle complexContent (in complexType).
 - Handle import/include/redefine.
+- Resolve all TODOs.
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
