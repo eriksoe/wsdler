@@ -30,7 +30,7 @@ parse_file(Filename) ->
 
 -spec(process_wsdl/1 :: (erlsom_dom()) -> #definitions{}).
 process_wsdl({{wsdl, "definitions"}, _Attrs, Children}) ->
-    close_definitions(lists:foldl(fun process_defs_children/2, #definitions{}, Children)).
+    close_definitions(lists:foldl(fun process_defs_children/2, #definitions{types=dict:new()}, Children)).
 
 close_definitions(#definitions{types=TypeDict}) ->
     #wsdl{typedict=TypeDict}.
@@ -39,7 +39,7 @@ add_to_field(Record,Key,Value) ->
     setelement(Key,Record, [Value | element(Key,Record)]).
 
 process_defs_children({{wsdl, "types"}, _Attrs, Children}, #definitions{}=Acc) ->
-    Types = lists:foldl(fun process_types_children/2, [], Children),
+    Types = lists:foldl(fun process_types_children/2, dict:new(), Children),
     Acc#definitions{types = wsdler_xsd:merge_schemas(Types,Acc#definitions.types)};
 process_defs_children({{wsdl, "message"}, Attrs, _Children}, Acc) ->
     add_to_field(Acc, #definitions.messages, {message,Attrs});
@@ -54,11 +54,6 @@ process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
     add_to_field(Acc, #definitions.services, {service}).
 %%     [service|Acc].
 
-process_types_children({{xsd,"schema"}, _, _}=SchemaNode, Acc) ->
+process_types_children({{xsd,"schema"}, _, _}=SchemaNode, AccDict) ->
     Types = wsdler_xsd:parse_schema_node(SchemaNode),
-    case Acc of
-	[] ->
-	    Types;
-	_ ->
-	    wsdler_xsd:merge_schemas(Types,Acc)
-    end.
+    wsdler_xsd:merge_schemas(Types,AccDict).

@@ -30,6 +30,11 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}) ->
                         strip_annotations(Children)),
     build_type_dict(Types).
 
+build_type_dict(Types) when is_list(Types) ->
+    lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
+                dict:new(),
+                Types).
+
 %%%%%% <schema> children: %%%%%%%%%%%%%%%%%%%%
 %%% (include | import | redefine | annotation)*, ("schemaTop"*, annotation*)
 %%% where
@@ -39,34 +44,30 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}) ->
 process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
 %%     io:format("DB| import: ~p\n", [_Attrs]),
     Acc;
-process_schema_children({{xsd,"element"}, Attrs, Children}, Acc, TgtNS) ->
+process_schema_children(E={{xsd,"element"}, _, _}, Acc, TgtNS) ->
+    Element = #element{name=Name} = process_element(E),
+    QName = {TgtNS, Name},
+    %%io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
+    [{QName, Element#element{name=QName}} | Acc];
+process_schema_children(Node={{xsd,"simpleType"}, Attrs,_}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    TypeContent =
-        case strip_annotations(Children) of
-            [{{xsd,"complexType"},_,_}] -> {complexType, 'TODO'};
-            [{{xsd,"simpleType"},_,_}] -> {simpleType, 'TODO'};
-            [] -> {simpleType, {named,attribute("type",Attrs)}}
-        end,
-    Type = #element{name={TgtNS, TypeName}, type=TypeContent},
-%%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
-    [{{TgtNS,TypeName},Type} | Acc];
-process_schema_children({{xsd,"simpleType"}, Attrs, Children}, Acc, TgtNS) ->
+    %%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
+    %%     try
+    %%         Gen = wsdler_generators:generator(Type),
+    %%         io:format("DB| generator: ~p\n", [Gen]),
+    %%         io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
+    %%     catch _:Reason ->
+    %%             io:format("** Generator error: ~p\n", [Reason])
+    %%     end,
+    [{{TgtNS,TypeName},process_simpleType(Node)} | Acc];
+process_schema_children(Node={{xsd,"complexType"}, Attrs, _}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    Type = process_simpleType_children(Children),
-%%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
-%%     try
-%%         Gen = wsdler_generators:generator(Type),
-%%         io:format("DB| generator: ~p\n", [Gen]),
-%%         io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
-%%     catch _:Reason ->
-%%             io:format("** Generator error: ~p\n", [Reason])
-%%     end,
-    [{{TgtNS,TypeName},Type} | Acc];
-process_schema_children({{xsd,"complexType"}, Attrs, Children}, Acc, TgtNS) ->
-    TypeName = attribute("name",Attrs),
-%%     io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    CT = #complexType{children = process_complexType_children(strip_annotations(Children))},
-    [{{TgtNS,TypeName},CT} | Acc].
+    %%io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
+    [{{TgtNS,TypeName},process_complexType(Node)} | Acc].
+
+process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
+    {Content, Attributes} = process_complexType_children(strip_annotations(Children)),
+    #complexType{content = Content, attributes=Attributes}.
 
 %%%%%% <complexType> children: %%%%%%%%%%%%%%%%%%%%
 %%% ( annotation?, "complexTypeModel")
@@ -76,63 +77,104 @@ process_schema_children({{xsd,"complexType"}, Attrs, Children}, Acc, TgtNS) ->
 %%%   typeDefParticle ::= ( group | all | choice | sequence )
 %%%   attrDecls ::= ( (attribute | attributeGroup)*, anyAttribute? )
 %%%
-process_complexType_children([{{xsd,"sequence"},_,Children} | _Attributes]) ->
-    %% TODO: Handle Attributes
-    [process_element(E) || E <- Children];
+process_complexType_children([]) ->
+    {undefined, todo_process_complex_children} ;
+process_complexType_children(Attributes=[{{xsd,"attribute"},_,_}|_]) ->
+    {undefined, [process_attribute(Attr) || Attr <- Attributes]} ;
+process_complexType_children([Node={{xsd,"sequence"},_,_} | Attributes]) ->
+    {process_sequence(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
+process_complexType_children([Node={{xsd,"choice"},_,_} | Attributes]) ->
+    {process_choice(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
 process_complexType_children([{{xsd,"simpleContent"},_,[Child]}]) -> %% TODO, only one child for now
-    process_simpleContent_child(Child).
+    {process_simpleContent_child(Child), []}.
+
+process_sequence({{xsd, "sequence"}, _Attr, Children}) ->
+    #sequence{content=[process_sequence_children(Child) || Child <- Children]}.
+process_sequence_children(Node={{xsd, "sequence"},_,_}) ->
+    process_sequence(Node);
+process_sequence_children(Node={{xsd, "element"},_,_}) ->
+    process_element(Node);
+process_sequence_children(Node={{xsd, "choice"},_,_}) ->
+    process_choice(Node).
+
+
 process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
-			   attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
 
-process_attribute({{xsd, "attribute"},Attributes,[]}) ->
+process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
+    {anyAttribute, todo_anyAttribute};
+process_attribute({{xsd, "attribute"},Attributes, Children}) ->
     Name = attribute("name", Attributes),
-    Type = attribute("type", Attributes),
-    Use  = attribute("use", Attributes),
-    #attribute{name=Name, type=Type, use=Use}.
+    Type = attribute("type", Attributes, undefined),
+    Use  = attribute("use", Attributes, undefined),
+    #attribute{name=Name, type=Type, use=Use,
+	       simpleType=case Children of [Child] -> process_simpleType(Child); [] -> undefined end}.
 
-process_element({{xsd,"element"}, Attrs, _Children}) ->
-    case attribute("ref", Attrs, none) of
+process_element({{xsd,"element"}, Attrs, []}) ->
+     case attribute("ref", Attrs, none) of
 	none ->
 	    ElemName = attribute("name",Attrs),
 	    #element{name=ElemName}; % TODO: type
 	Qname ->
 	    #elementRef{ref=Qname}
     end;
-process_element(X) ->
-    error({badarg, process_element, X}).
+process_element({{xsd,"element"}, Attrs, Children}) ->
+    ElemName = attribute("name",Attrs),
+    case strip_annotations(Children) of
+	[Child] ->
+	    #element{name=ElemName, type=process_element_child(Child)};
+	[] ->
+	    #element{name=ElemName}
+end.
+
+process_element_child(Node={{xsd, "simpleType"},_,_}) ->
+    process_simpleType(Node);
+process_element_child(Node={{xsd, "complexType"},_,_}) ->
+    process_complexType(Node).
+
+process_choice({{xsd,"choice"}, _Attr, Children}) ->
+    #choice{content=[process_choice_children(Child) || Child <- Children]}.
+
+process_choice_children(Node={{xsd, "sequence"},_,_}) ->
+    process_sequence(Node);
+process_choice_children(Node={{xsd, "choice"},_,_}) ->
+    process_choice(Node);
+process_choice_children(Node={{xsd, "element"},_,_}) ->
+    process_element(Node).
+
 
 %%%%%% <simpleType> children: %%%%%%%%%%%%%%%%%%%%
 %%% (annotation?, "simpleDerivation")
 %%% where
 %%%   simpleDerivation ::= (restriction | list | union)
-process_simpleType_children(L) ->
-    [SimpleTypeChildElement] = strip_annotations(L),
-    process_simpleType(SimpleTypeChildElement).
+process_simpleType({{xsd, "simpleType"}, _Attr, Children}) ->
+    [Child] = strip_annotations(Children),
+    process_simpleType_child(Child).
 
-process_simpleType({{xsd,"restriction"}, Attrs, Children}) ->
+process_simpleType_child({{xsd,"restriction"}, Attrs, Children}) ->
     BaseType = attribute("base", Attrs),
     lists:foldl(fun process_restriction_child/2,
                 #restriction{base=BaseType},
                 Children);
-process_simpleType({{xsd,"list"}, Attrs, Children}) ->
-    case [X || X={{xsd,"simpleType"},_,_} <- Children] of
-        [] ->
-            ItemType = {named,attribute("itemType", Attrs)};
-        [ItemTypeElement] ->
-            ItemType = process_simpleType_children(ItemTypeElement) % ?
-    end,
+process_simpleType_child({{xsd,"list"}, Attrs, Children}) ->
+    ItemType = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
+		   [] ->
+		       {named,attribute("itemType", Attrs)};
+		   [ItemTypeElement] ->
+		       process_simpleType_child(ItemTypeElement) % ?
+	       end,
     #simpleListType{itemType=ItemType};
-process_simpleType({{xsd,"union"}, Attrs, Children}) ->
-    case [X || X={{xsd,"simpleType"},_,_} <- Children] of
-        [] ->
-            MemberTypes = [{named,X}
-                           || X<-list_attribute("memberTypes", Attrs)];
+process_simpleType_child({{xsd,"union"}, Attrs, Children}) ->
+    MemberTypes = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
+		      [] ->
+			  [{named,X}
+			   || X<-list_attribute("memberTypes", Attrs)];
         MemberTypeElements ->
-            MemberTypes = [process_simpleType_children(strip_annotations(X))
+			  [process_simpleType_child(strip_annotations(X))
                            || X <-MemberTypeElements]
-    end,
+		  end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
 process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
@@ -141,6 +183,7 @@ process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction
 process_restriction_child({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
     Pattern = attribute("value", Attrs),
     R#restriction{pattern=Pattern};
+
 process_restriction_child({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{minLength=Length};
@@ -173,11 +216,6 @@ strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
     strip_annotations(Rest);
 strip_annotations(X) ->
     X.
-
-build_type_dict(Types) when is_list(Types) ->
-    lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
-                dict:new(),
-                Types).
 
 %%%======================================================================
 
