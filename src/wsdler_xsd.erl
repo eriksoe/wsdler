@@ -3,11 +3,12 @@
 %%% Purpose: Conversion of XSD DOMs into internal model.
 
 -export([parse_file/1, parse_string/1, parse_schema_node/1]).
--export([merge_schemas/2]).
+-export([empty_schema/0, schema_to_type_list/1, merge_schemas/2]).
 
 -include("wsdler.hrl").
 -import(wsdler_xml, [attribute/2, attribute/3, list_attribute/2]).
 
+-opaque(schema() :: dict()).
 
 parse_file(FileName) ->
     {ok,Text} = file:read_file(FileName),
@@ -18,8 +19,15 @@ parse_string(XMLText) ->
     Types = parse_schema_node(XMLTree),
     {ok, Types}.
 
+-spec empty_schema/0 :: () -> schema().
+empty_schema() ->
+    dict:new().
+
 merge_schemas(TypeDict1, TypeDict2) ->
     dict:merge(no_conflicts_assumed, TypeDict1, TypeDict2).
+
+schema_to_type_list(Schema) ->
+    dict:to_list(Schema).
 
 %%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
