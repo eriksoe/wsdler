@@ -1,12 +1,17 @@
 ==== TO DO: ====
 XSD:
-- Create index of named <element>s and <group>s.
-- Handle <xs:element> element, as well as <xs element ref="id"/> references.
 - Handle complexContent (in complexType).
 - Handle import/include/redefine.
+- Integrate phase 1: "flatten and collect"
+- Phase 2a - Annotate simpleTypes with built-in ancestor type.
 - Resolve all TODOs.
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
 - _wsdl: split into _xsd and _wsdl.
-
+- Sketch phased algorithm.
+- Create index of named <element>s and <group>s.
+  (By flattening)
+- Handle <xs:element> element, as well as <xs element ref="id"/> references.
+  (By flattening)
+- Implement phase 1: "flatten and collect"
