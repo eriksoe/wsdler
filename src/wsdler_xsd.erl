@@ -31,8 +31,52 @@ schema_to_type_list(Schema) ->
 
 %%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-parse_schema_node({{xsd,"schema"}, Attrs, Children}) ->
+%%% Algorithm sketch:
+%%% 1. Flatten representation/gather definitions.
+%%%    Lift nested element/group etc. up to top-level.
+%%% 2. Handle imports/includes/redefines (handwaving).
+%%%    Result: a type-dict?
+%%%    Result: elements+groups+simple/complexTypes.
+%%% 3. SimpleTypes:
+%%%    1. Order simpleTypes by derivation hierarchy.
+%%%    2. Determine basic-types.
+%%%    3. Determine joint restrictions.
+%%%    4. Create internal representations.
+%%%    Result: a type-dict for the simple types.
+%%% 4. Elements and groups:
+%%%    1. Check references of simpleTypes and refered elements.
+%%%       (No full resolution needed - only existence check.)
+
+%%% State from phase 1:
+-record(collect_state, {elements :: dict(), % of XML subtree
+                        groups :: dict(),
+                        attr_groups :: dict(),
+                        types :: dict(),
+                        includes_etc :: []
+                       }).
+
+parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
     TgtNS = attribute("targetNamespace", Attrs, ""),
+    %% TODO: Handle import/include/redefine.
+    %% Handle children in the following order:
+    %% 1. simpleTypes (depends only on other simple types)
+    %% 2. elements (depends on simpleTypes)
+    %% 3. groups (depends on simpleTypes and elements)
+    %% 4. complextypes (depends on all others)
+    _SimpleTypes = [{{simpleType,attribute("name",As)}, E}
+                || {{xsd,"simpleType"},As,_}=E <- Children],
+    _Elements = [{{element,ID}, E}
+                || {{xsd,"element"},As,_}=E <- Children,
+                   {{"","id"}, ID} <- As],
+    _Groups = [{{group,ID}, E}
+              || {{xsd,"group"},As,_}=E <- Children,
+                 {{"","id"}, ID} <- As],
+    {Root1,State1} = collect_defs_schema_node(_E),
+    io:format(user, "DB| Phase 1 output: ~p\n",
+              [{Root1,[if element(1,X)==dict ->
+                               dict:to_list(X);
+                          true -> X
+                       end || X <- tuple_to_list(State1)]}]),
     Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
                         [],
                         strip_annotations(Children)),
@@ -42,6 +86,98 @@ build_type_dict(Types) when is_list(Types) ->
     lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
                 dict:new(),
                 Types).
+
+%%%==================== Phase 2: Collect definitions ====================
+%% collect_defs_schema_children({{xsd,Tag}, Attrs, Children}=E, Acc) ->
+%%     if
+%%         Tag=:="import";
+%%         Tag=:="include";
+%%         Tag=:="redefine" ->
+%%             Acc#collect_state{includes_etc=[E | Acc#collect_state.includes_etc]};
+%%         Tag =:= "element" ->
+%%             {E2,Acc2} = collect_defs_element(E),
+%%             case wsdler_xml:attribute("id",Attrs,undefined) of
+%%                 undefined -> Acc2;
+%%                 ID ->
+%%                     OldDict = Acc#collect_state.elements,
+%%                     Acc2#collect_state{element=dict:store(ID,E2,OldDict)}
+%%             end;
+%%         Tag =:= "group" ->
+%%             'TODO'
+%%     end.
+
+collect_defs_schema_node({{xsd,"schema"}, _Attrs, _Children}=E) ->
+    do_collect_defs(root, E, #collect_state{elements    = dict:new(),
+                                            groups      = dict:new(),
+                                            attr_groups = dict:new(),
+                                            types       = dict:new(),
+                                            includes_etc = []}).
+
+%%% Tree state machine engine:
+do_collect_defs(StateName, {{xsd,Tag}, _Attrs, _Children}=E, Acc) ->
+    perform_collect_defs_action(collect_defs_action(StateName,Tag), E, Acc).
+
+perform_collect_defs_action([Action|Actions], Node, Acc) ->
+    {Node2, Acc2} = perform_collect_defs_action(Action, Node, Acc),
+    perform_collect_defs_action(Actions, Node2, Acc2);
+perform_collect_defs_action([], Node, Acc) ->
+    {Node, Acc};
+perform_collect_defs_action(ignore, _Node, Acc) ->
+    {removed, Acc};
+perform_collect_defs_action(add_to_includes_etc, Node, Acc) ->
+    OldList = Acc#collect_state.includes_etc,
+    {removed, Acc#collect_state{includes_etc=[Node | OldList]}};
+perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
+                            Node={_,Attrs,_}, Acc) ->
+    ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
+    Old = element(FNr,Acc),
+    New = dict:store(ID, Node, Old),
+    Acc2 = setelement(FNr, Acc, New),
+    {{named,ID}, Acc2};
+perform_collect_defs_action({recurse, RecStateName}, {Tag,Attrs,Children}, Acc) ->
+    {Children2,Acc2} = lists:mapfoldl(fun(C,A) ->
+                                       do_collect_defs(RecStateName, C, A)
+                               end,
+                               Acc,
+                               Children),
+    Node2 = {Tag, Attrs, [C || C <- Children2, C /= removed]},
+    {Node2, Acc2}.
+
+
+%%% Tree state machine definition:
+collect_defs_action(root,"schema")     -> {recurse, schema};
+collect_defs_action(_,"annotation")    -> ignore;
+collect_defs_action(schema,"import")   -> add_to_includes_etc;
+collect_defs_action(schema,"include")  -> add_to_includes_etc;
+collect_defs_action(schema,"redefine") -> add_to_includes_etc;
+collect_defs_action(_,"element") ->
+    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "id"}];
+collect_defs_action(_,"group") ->
+    [{recurse,group},   {add_to_dict_field, #collect_state.groups, "id"}];
+collect_defs_action(_,"attributeGroup") ->
+    [{recurse,group},   {add_to_dict_field, #collect_state.attr_groups, "id"}];
+collect_defs_action(_,"simpleType") ->
+    [{recurse,simpleType}, {add_to_dict_field, #collect_state.types, "name"}];
+collect_defs_action(_,"complexType") ->
+    [{recurse,complexType}, {add_to_dict_field, #collect_state.types, "name"}];
+collect_defs_action(simpleType,"restriction") -> [];
+collect_defs_action(simpleType,"list")       -> {recurse, list};
+collect_defs_action(simpleType,"union")      -> {recurse, union};
+collect_defs_action(complexType,"simpleContent") -> {recurse,simpleContent};
+collect_defs_action(complexType,"complexContent") -> {recurse,complexContent};
+collect_defs_action(complexType,"all") -> {recurse,group};
+collect_defs_action(complexType,"sequence")  -> {recurse,group};
+collect_defs_action(complexType,"attributeGroup") -> {recurse,attributeGroup};
+collect_defs_action(_,"attribute") -> {recurse,attribute};
+collect_defs_action(simpleContent,"extension")    -> {recurse,simple_extension};
+collect_defs_action(complexContent,"restriction") -> {recurse,group};
+collect_defs_action(complexContent,"extension") -> {recurse,group};
+collect_defs_action(group,"sequence") -> {recurse,group};
+collect_defs_action(group,"choice")   -> {recurse,group};
+collect_defs_action(group,"all")      -> {recurse,group};
+collect_defs_action(group,"any")      -> {recurse,group};
+collect_defs_action(element,"unique") -> [].
+
 
 %%%%%% <schema> children: %%%%%%%%%%%%%%%%%%%%
 %%% (include | import | redefine | annotation)*, ("schemaTop"*, annotation*)
@@ -218,3 +354,86 @@ strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
     strip_annotations(Rest);
 strip_annotations(X) ->
     X.
+
+%%%======================================================================
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+simpleType_test() ->
+    XMLSchema =
+	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example.org\""
+        "     xmlns=\"http://www.example.org\""
+        "     elementFormDefault=\"qualified\">"
+	"  <xsd:simpleType name=\"myInteger\">"
+	"    <xsd:restriction base=\"xsd:integer\">"
+	"      <xsd:minInclusive value=\"10000\"/>"
+	"      <xsd:maxInclusive value=\"99999\"/>"
+	"     </xsd:restriction>"
+	"  </xsd:simpleType>"
+        "</xsd:schema>",
+
+    NS = "http://www.example.org",
+    Ast =
+	[{{NS,"myInteger"},
+          #restriction{base={xsd,"integer"},
+                       minValue={10000,true},
+                       maxValue={99999,true}}}],
+    check_test_example(XMLSchema, Ast).
+
+simpleType2_test() ->
+    %% Beware the default namespace.
+    XMLSchema =
+	"<schema xmlns=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example2.org\""
+        "     elementFormDefault=\"qualified\">"
+	"  <simpleType name=\"myInteger\">"
+	"    <restriction base=\"integer\">"
+	"      <minInclusive value=\"10000\"/>"
+	"      <maxInclusive value=\"99999\"/>"
+	"     </restriction>"
+	"  </simpleType>"
+        "</schema>",
+
+    NS = "http://www.example.org",
+    Ast =
+	[{{NS,"myInteger"},
+          #restriction{base={xsd,"integer"},
+                       minValue={10000,true},
+                       maxValue={99999,true}}}],
+    check_test_example(XMLSchema, Ast).
+
+complexType_test() ->
+    XMLSchema =
+	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
+        "     targetNamespace=\"http://www.example.org\""
+        "     xmlns=\"http://www.example.org\""
+        "     elementFormDefault=\"qualified\">"
+	"  <xsd:complexType name=\"Address\" >"
+	"    <xsd:sequence>"
+	"      <xsd:element name=\"name\"   type=\"xsd:string\"/>"
+	"      <xsd:element name=\"street\" type=\"xsd:string\"/>"
+	"      <xsd:element name=\"city\"   type=\"xsd:string\"/>"
+	"      <xsd:element name=\"state\"  type=\"xsd:string\"/>"
+	"      <xsd:element name=\"zip\"    type=\"xsd:decimal\"/>"
+	"    </xsd:sequence>"
+	"  </xsd:complexType>"
+        "</xsd:schema>",
+
+    Ast =
+        [{{"http://www.example.org", "Address"},
+          #complexType{content=[
+                                 #element{name="name"}, % TODO: types
+                                 #element{name="street"},
+                                 #element{name="city"},
+                                 #element{name="state"},
+                                 #element{name="zip"}
+                                ]}}],
+    check_test_example(XMLSchema, Ast).
+
+check_test_example(XMLSchema, ExpectedTypes) ->
+    {ok,TypeDict} = (catch wsdler_xsd:parse_string(XMLSchema)),
+    ?assertEqual(ExpectedTypes, lists:sort(dict:to_list(TypeDict))).
+
+-endif.
