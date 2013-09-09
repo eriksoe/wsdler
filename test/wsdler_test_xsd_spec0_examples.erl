@@ -16,7 +16,8 @@ xsd_spec0_examples_test_() ->
 
 test_schema(XML) ->
     fun() ->
-            try ?assertMatch([_], dict:to_list(wsdler_xsd:parse_schema_node(XML)))
+            TypeMap = wsdler_xsd:schema_to_type_list(wsdler_xsd:parse_schema_node(XML)),
+            try ?assertMatch([_|_], TypeMap)
             catch
                 Cls:Err ->
                     Trace = erlang:get_stacktrace(),
