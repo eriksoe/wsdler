@@ -37,24 +37,23 @@ schema_to_type_list(Schema) ->
 %%% 2. Handle imports/includes/redefines (handwaving).
 %%%    Result: a type-dict?
 %%%    Result: elements+groups+simple/complexTypes.
-%%% 3. SimpleTypes:
-%%%    1. Order simpleTypes by derivation hierarchy.
-%%%    2. Determine basic-types.
-%%%    3. Determine joint restrictions.
-%%%    4. Create internal representations.
-%%%    Result: a type-dict for the simple types.
-%%% 4. Elements and groups:
-%%%    1. Check references of simpleTypes and refered elements.
-%%%       (No full resolution needed - only existence check.)
+%%% 3. Order types by the partial order defined by the type hierarchy.
+%%%    Check references simultaneously.
+%%% 4. Convert from XML to internal representation.
+%%% 5. Make inferences.
+%%%    - Simple types:
+%%%      - Determine basic-types.
+%%%      - Determine joint restrictions.
 
 %%% State from phase 1:
--record(collect_state, {elements :: dict(), % of XML subtree
-                        groups :: dict(),
-                        attr_groups :: dict(),
-                        types :: dict(),
-                        includes_etc :: [],
-                        targetNS :: string()
-                       }).
+-record(collect_state, {
+          elements :: dict(), % of XML subtree
+          groups :: dict(),
+          attr_groups :: dict(),
+          types :: dict(),
+          includes_etc :: [],
+          targetNS :: string()
+         }).
 
 parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
     TgtNS = attribute("targetNamespace", Attrs, ""),
@@ -78,6 +77,7 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
                                dict:to_list(X);
                           true -> X
                        end || X <- tuple_to_list(State1)]}]),
+    check_references(State1),
     Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
                         [],
                         strip_annotations(Children)),
@@ -182,6 +182,92 @@ collect_defs_action(group,"all")      -> {recurse,group};
 collect_defs_action(group,"any")      -> {recurse,group};
 collect_defs_action(element,"unique") -> [].
 
+%%%========== Phase 3: Check references & establish partial order ==========
+%%% References in question:
+%%% - simpleType.restriction.base
+%%% - complexType.simpleContent.{restriction/extension}.base
+%%% - complexType.complexContent.{restriction/extension}.base
+%%% - element.ref
+%%% - group.ref
+%%% - attributeGroup.ref
+
+%%% State from phase 3:
+-record(refcheck_state, {
+          elements :: dict(), % of XML subtree
+          groups :: dict(),
+          attr_groups :: dict(),
+          types :: dict(),
+          type_order :: [_]
+         }).
+
+check_references(#collect_state{}=State) ->
+    TypeDict = State#collect_state.types,
+    {_,_,TypeOrder} =
+        lists:foldl(fun check_type_references/2,
+                    {TypeDict, dict:new(), []},
+                    dict:fetch_keys(TypeDict)),
+    %% TODO: Check other references.
+    io:format(user, "DB| check_type_references: type order: ~p\n", [TypeOrder]),
+    #refcheck_state{
+               elements    = State#collect_state.elements,
+               groups      = State#collect_state.groups,
+               attr_groups = State#collect_state.attr_groups,
+               types       = State#collect_state.types,
+               type_order  = TypeOrder
+              }.
+
+check_type_references(no_base, State) ->
+    State;
+check_type_references({xsd,_}, State) ->
+    %% A built-in type.  Existence assumed.
+    State;
+check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
+    io:format(user, "DB| check_type_references: ~p\n", [Key]),
+    case dict:find(Key, TypeStates) of
+        {ok, done}     -> State;
+        {ok, visiting} -> error({cycle_in_type_hiearchy, Key});
+        error ->
+            TypeNode = dict:fetch(Key, TypeDict),
+            %% {_Tag, Attrs, _Children} = Type,
+            BaseType = base_type_of(TypeNode), %wsdler_xml:attribute("base", Attrs),
+            TypeStates2 = dict:store(Key, visiting, TypeStates),
+            {_, TypeStates3, Acc2} =
+                check_type_references(BaseType,
+                                      {TypeDict, TypeStates2, Acc}),
+            TypeStates4 = dict:store(Key, done, TypeStates3),
+            {TypeDict, TypeStates4, [Key | Acc2]}
+    end.
+
+base_type_of({{xsd, "simpleType"}, _Attrs, Children}) ->
+    case strip_annotations(Children) of
+        [{{xsd,"list" }, _, _}] -> no_base;
+        [{{xsd,"union"}, _, _}] -> no_base;
+        [{{xsd,"restriction"}, Attrs2, _}] ->
+            wsdler_xml:attribute("base", Attrs2)
+    end;
+base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
+    case Children of
+        [] ->
+            no_base;
+        [{{xsd,"attribute"}, _, _} | _] ->
+            no_base;
+        [{{xsd,Tag}, _, _} | _] when Tag=:="group";
+                                     Tag=:="all";
+                                     Tag=:="choice";
+                                     Tag=:="sequence" ->
+            no_base;
+        [{{xsd,"simpleContent"}, _,
+          [{{xsd,Tag}, Attrs2, _}]}] when Tag=:="restriction";
+                                         Tag=:="extension" ->
+            wsdler_xml:attribute("base", Attrs2);
+        [{{xsd,"complexContent"}, _,
+          [{{xsd,Tag}, Attrs2, _}]}] when Tag=:="restriction";
+                                          Tag=:="extension" ->
+            wsdler_xml:attribute("base", Attrs2)
+    end;
+base_type_of(Other) -> error({incomplete, base_type_of, Other}).
+
+%%%=========================================================================
 
 %%%%%% <schema> children: %%%%%%%%%%%%%%%%%%%%
 %%% (include | import | redefine | annotation)*, ("schemaTop"*, annotation*)
