@@ -52,7 +52,8 @@ schema_to_type_list(Schema) ->
                         groups :: dict(),
                         attr_groups :: dict(),
                         types :: dict(),
-                        includes_etc :: []
+                        includes_etc :: [],
+                        targetNS :: string()
                        }).
 
 parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
@@ -87,7 +88,7 @@ build_type_dict(Types) when is_list(Types) ->
                 dict:new(),
                 Types).
 
-%%%==================== Phase 2: Collect definitions ====================
+%%%==================== Phase 1: Collect definitions ====================
 %% collect_defs_schema_children({{xsd,Tag}, Attrs, Children}=E, Acc) ->
 %%     if
 %%         Tag=:="import";
@@ -106,12 +107,14 @@ build_type_dict(Types) when is_list(Types) ->
 %%             'TODO'
 %%     end.
 
-collect_defs_schema_node({{xsd,"schema"}, _Attrs, _Children}=E) ->
+collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
+    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, ""),
     do_collect_defs(root, E, #collect_state{elements    = dict:new(),
                                             groups      = dict:new(),
                                             attr_groups = dict:new(),
                                             types       = dict:new(),
-                                            includes_etc = []}).
+                                            includes_etc = [],
+                                            targetNS    = TargetNS}).
 
 %%% Tree state machine engine:
 do_collect_defs(StateName, {{xsd,Tag}, _Attrs, _Children}=E, Acc) ->
@@ -129,9 +132,10 @@ perform_collect_defs_action(add_to_includes_etc, Node, Acc) ->
     {removed, Acc#collect_state{includes_etc=[Node | OldList]}};
 perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
                             Node={_,Attrs,_}, Acc) ->
+    TargetNS = Acc#collect_state.targetNS,
     ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
     Old = element(FNr,Acc),
-    New = dict:store(ID, Node, Old),
+    New = dict:store({TargetNS,ID}, Node, Old),
     Acc2 = setelement(FNr, Acc, New),
     {{named,ID}, Acc2};
 perform_collect_defs_action({recurse, RecStateName}, {Tag,Attrs,Children}, Acc) ->
