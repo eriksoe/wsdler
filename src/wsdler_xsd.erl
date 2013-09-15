@@ -227,15 +227,19 @@ check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
         {ok, done}     -> State;
         {ok, visiting} -> error({cycle_in_type_hiearchy, Key});
         error ->
-            TypeNode = dict:fetch(Key, TypeDict),
-            %% {_Tag, Attrs, _Children} = Type,
-            BaseType = base_type_of(TypeNode), %wsdler_xml:attribute("base", Attrs),
-            TypeStates2 = dict:store(Key, visiting, TypeStates),
-            {_, TypeStates3, Acc2} =
-                check_type_references(BaseType,
-                                      {TypeDict, TypeStates2, Acc}),
-            TypeStates4 = dict:store(Key, done, TypeStates3),
-            {TypeDict, TypeStates4, [Key | Acc2]}
+            case dict:find(Key, TypeDict) of
+                error ->
+                    error({unresolved_type_reference, Key});
+                {ok, TypeNode} ->
+                    %% {_Tag, Attrs, _Children} = Type,
+                    BaseType = base_type_of(TypeNode), %wsdler_xml:attribute("base", Attrs),
+                    TypeStates2 = dict:store(Key, visiting, TypeStates),
+                    {_, TypeStates3, Acc2} =
+                        check_type_references(BaseType,
+                                              {TypeDict, TypeStates2, Acc}),
+                    TypeStates4 = dict:store(Key, done, TypeStates3),
+                    {TypeDict, TypeStates4, [Key | Acc2]}
+            end
     end.
 
 base_type_of({{xsd, "simpleType"}, _Attrs, Children}) ->
