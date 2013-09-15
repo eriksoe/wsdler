@@ -172,6 +172,7 @@ collect_defs_action(complexType,"complexContent") -> {recurse,complexContent};
 collect_defs_action(complexType,"all") -> {recurse,group};
 collect_defs_action(complexType,"sequence")  -> {recurse,group};
 collect_defs_action(complexType,"attributeGroup") -> {recurse,attributeGroup};
+collect_defs_action(complexType,"anyAttribute") -> [];
 collect_defs_action(_,"attribute") -> {recurse,attribute};
 collect_defs_action(simpleContent,"extension")    -> {recurse,simple_extension};
 collect_defs_action(complexContent,"restriction") -> {recurse,group};
@@ -180,7 +181,9 @@ collect_defs_action(group,"sequence") -> {recurse,group};
 collect_defs_action(group,"choice")   -> {recurse,group};
 collect_defs_action(group,"all")      -> {recurse,group};
 collect_defs_action(group,"any")      -> {recurse,group};
-collect_defs_action(element,"unique") -> [].
+collect_defs_action(element,"key") -> [];
+collect_defs_action(element,"unique") -> [];
+collect_defs_action(element,"keyref") -> [].
 
 %%%========== Phase 3: Check references & establish partial order ==========
 %%% References in question:
