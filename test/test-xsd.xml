@@ -292,8 +292,8 @@
   </xsd:attributeGroup>
 </xsd:schema>
 
-<xsd:element name="shipDate" type="xsd:date" nillable="true"/>
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:element name="shipDate" type="xsd:date" nillable="true"/>
 
   <xsd:annotation>
     <xsd:documentation xml:lang="en">
@@ -827,7 +827,7 @@
         xmlns:ipo="http://www.example.com/IPO">
   <complexType name="Analyst">
     <complexContent>
-      <extension base="xipo:USAddress">
+      <extension base="ipo:USAddress">
 	<sequence>
 	  <element name="phone" type="string"/>
 	  <element name="email" type="string"/>
