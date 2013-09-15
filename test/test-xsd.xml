@@ -606,8 +606,9 @@
 
 </schema>
 
-
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <include schemaLocation="http://www.example.com/schemas/address.xsd"/>
   <complexType name="UKAddress">
     <sequence>
@@ -623,10 +624,12 @@
     <!-- appended attribute declaration -->
     <attribute name="exportCode" type="positiveInteger" fixed="1"/>
   </complexType>
-</xsd:schema>
+</schema>
 
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <complexType name="RestrictedPurchaseOrderType">
     <complexContent>
       <restriction base="ipo:PurchaseOrderType">
@@ -639,7 +642,7 @@
       </restriction>
     </complexContent>
   </complexType>
-</xsd:schema>
+</schema>
 
 <schema targetNamespace="http://www.example.com/IPO"
         xmlns="http://www.w3.org/2001/XMLSchema"
@@ -667,7 +670,7 @@
 </schema>
 
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <element name="comment" type="string" abstract="true"/>
+  <xsd:element name="comment" type="string" abstract="true"/>
 </xsd:schema>
 
 <schema xmlns="http://www.w3.org/2001/XMLSchema"
@@ -691,7 +694,9 @@
   <element name="transport" type="target:Vehicle"/>
 </schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <complexType name="Address" final="restriction">
     <sequence>
       <element name="name"   type="string"/>
@@ -699,25 +704,31 @@
       <element name="city"   type="string"/>
     </sequence>
   </complexType>
-</xsd:schema>
+</schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <simpleType name="Postcode">
     <restriction base="string">
       <length value="7" fixed="true"/>
     </restriction>
   </simpleType>
-</xsd:schema>
+</schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <simpleType name="UKPostcode">
     <restriction base="ipo:Postcode">
       <pattern value="[A-Z]{2}\d\s\d[A-Z]{2}"/>
     </restriction>
   </simpleType>
-</xsd:schema>
+</schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <simpleType name="UKPostcode">
     <restriction base="ipo:Postcode">
       <pattern value="[A-Z]{2}\d\d[A-Z]{2}"/>
@@ -725,9 +736,11 @@
       <length value="6" fixed="true"/>
     </restriction>
   </simpleType>
-</xsd:schema>
+</schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <complexType name="Address" block="restriction">
     <sequence>
       <element name="name"   type="string"/>
@@ -735,7 +748,7 @@
       <element name="city"   type="string"/>
     </sequence>
   </complexType>
-</xsd:schema>
+</schema>
 
 <schema targetNamespace="http://www.example.com/Report"
         xmlns="http://www.w3.org/2001/XMLSchema"
@@ -830,14 +843,16 @@
 </xsd:schema>
 
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <element ref="xipo:comment"/>
+  <xsd:element ref="xipo:comment"/>
 </xsd:schema>
 
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <element ref="xipo:shipTo"/>
+  <xsd:element ref="xipo:shipTo"/>
 </xsd:schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <complexType name="Analyst">
     <complexContent>
       <extension base="xipo:USAddress">
@@ -848,7 +863,7 @@
       </extension>
     </complexContent>
   </complexType>
-</xsd:schema>
+</schema>
 
 <schema targetNamespace="http://www.example.com/Currency"
         xmlns:c="http://www.example.com/Currency"
@@ -902,7 +917,10 @@
 
 </schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <element name="purchaseReport">
     <complexType>
       <sequence>
@@ -922,7 +940,7 @@
       <attribute name="periodEnding" type="date"/>
     </complexType>
   </element>
-</xsd:schema>
+</schema>
 
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <xsd:complexType name="text">
@@ -937,7 +955,9 @@
   </xsd:complexType>
 </xsd:schema>
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
   <element name="htmlExample">
     <complexType>
       <sequence>
@@ -948,4 +968,4 @@
       <anyAttribute namespace="http://www.w3.org/1999/xhtml"/>
     </complexType>
   </element>
-</xsd:schema>
+</schema>
