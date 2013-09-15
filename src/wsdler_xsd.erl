@@ -56,7 +56,7 @@ schema_to_type_list(Schema) ->
          }).
 
 parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
-    TgtNS = attribute("targetNamespace", Attrs, ""),
+    TgtNS = attribute("targetNamespace", Attrs, undefined),
     %% TODO: Handle import/include/redefine.
     %% Handle children in the following order:
     %% 1. simpleTypes (depends only on other simple types)
@@ -108,7 +108,7 @@ build_type_dict(Types) when is_list(Types) ->
 %%     end.
 
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
-    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, ""),
+    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, undefined),
     do_collect_defs(root, E, #collect_state{elements    = dict:new(),
                                             groups      = dict:new(),
                                             attr_groups = dict:new(),
