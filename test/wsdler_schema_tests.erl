@@ -1,4 +1,4 @@
--module(wsdler_test_xsd_spec0_examples).
+-module(wsdler_schema_tests).
 -compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
 
