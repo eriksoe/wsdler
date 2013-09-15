@@ -282,6 +282,7 @@ process_schema_children(E={{xsd,"element"}, _, _}, Acc, TgtNS) ->
     Element = #element{name=Name} = process_element(E),
     QName = {TgtNS, Name},
     %%io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
+    %% TODO: element should not be mixed with types!
     [{QName, Element#element{name=QName}} | Acc];
 process_schema_children(Node={{xsd,"simpleType"}, Attrs,_}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
@@ -445,85 +446,3 @@ strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
 strip_annotations(X) ->
     X.
 
-%%%======================================================================
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
-simpleType_test() ->
-    XMLSchema =
-	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
-        "     targetNamespace=\"http://www.example.org\""
-        "     xmlns=\"http://www.example.org\""
-        "     elementFormDefault=\"qualified\">"
-	"  <xsd:simpleType name=\"myInteger\">"
-	"    <xsd:restriction base=\"xsd:integer\">"
-	"      <xsd:minInclusive value=\"10000\"/>"
-	"      <xsd:maxInclusive value=\"99999\"/>"
-	"     </xsd:restriction>"
-	"  </xsd:simpleType>"
-        "</xsd:schema>",
-
-    NS = "http://www.example.org",
-    Ast =
-	[{{NS,"myInteger"},
-          #restriction{base={xsd,"integer"},
-                       minValue={10000,true},
-                       maxValue={99999,true}}}],
-    check_test_example(XMLSchema, Ast).
-
-simpleType2_test() ->
-    %% Beware the default namespace.
-    XMLSchema =
-	"<schema xmlns=\"http://www.w3.org/2001/XMLSchema\""
-        "     targetNamespace=\"http://www.example2.org\""
-        "     elementFormDefault=\"qualified\">"
-	"  <simpleType name=\"myInteger\">"
-	"    <restriction base=\"integer\">"
-	"      <minInclusive value=\"10000\"/>"
-	"      <maxInclusive value=\"99999\"/>"
-	"     </restriction>"
-	"  </simpleType>"
-        "</schema>",
-
-    NS = "http://www.example.org",
-    Ast =
-	[{{NS,"myInteger"},
-          #restriction{base={xsd,"integer"},
-                       minValue={10000,true},
-                       maxValue={99999,true}}}],
-    check_test_example(XMLSchema, Ast).
-
-complexType_test() ->
-    XMLSchema =
-	"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
-        "     targetNamespace=\"http://www.example.org\""
-        "     xmlns=\"http://www.example.org\""
-        "     elementFormDefault=\"qualified\">"
-	"  <xsd:complexType name=\"Address\" >"
-	"    <xsd:sequence>"
-	"      <xsd:element name=\"name\"   type=\"xsd:string\"/>"
-	"      <xsd:element name=\"street\" type=\"xsd:string\"/>"
-	"      <xsd:element name=\"city\"   type=\"xsd:string\"/>"
-	"      <xsd:element name=\"state\"  type=\"xsd:string\"/>"
-	"      <xsd:element name=\"zip\"    type=\"xsd:decimal\"/>"
-	"    </xsd:sequence>"
-	"  </xsd:complexType>"
-        "</xsd:schema>",
-
-    Ast =
-        [{{"http://www.example.org", "Address"},
-          #complexType{content=[
-                                 #element{name="name"}, % TODO: types
-                                 #element{name="street"},
-                                 #element{name="city"},
-                                 #element{name="state"},
-                                 #element{name="zip"}
-                                ]}}],
-    check_test_example(XMLSchema, Ast).
-
-check_test_example(XMLSchema, ExpectedTypes) ->
-    {ok,TypeDict} = (catch wsdler_xsd:parse_string(XMLSchema)),
-    ?assertEqual(ExpectedTypes, lists:sort(dict:to_list(TypeDict))).
-
--endif.
