@@ -16,4 +16,8 @@ doc:
 doc/%.html: doc/%.asciidoc
 	asciidoc $<
 
+clean:
+	rm ebin/*.beam;
+	rm test/*.beam
+
 .PHONY: compile setup test dialyze doc
