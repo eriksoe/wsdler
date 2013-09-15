@@ -2,9 +2,10 @@
 XSD:
 - Handle complexContent (in complexType).
 - Handle import/include/redefine.
-- Integrate phase 1: "flatten and collect"
-- Phase 2a - Annotate simpleTypes with built-in ancestor type.
+- Phase 3b - Check references apart from "base".
 - Fix test sample file wrt. namespaces.
+- Fix test sample file wrt. incomplete schemas.
+
 - Resolve all TODOs.
 
 ==== DONE: ====
@@ -16,3 +17,4 @@ XSD:
 - Handle <xs:element> element, as well as <xs element ref="id"/> references.
   (By flattening)
 - Implement phase 1: "flatten and collect"
+- Phase 3a - Order types by "base" relation.
