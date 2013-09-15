@@ -1,10 +1,8 @@
 -module(wsdler_test_xsd_spec0_examples).
-
+-compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
 
--compiler([export_all]).
-
-xsd_spec0_examples_test_() ->
+gen_all_test_() ->
     FileName = filename:join(code:lib_dir(wsdler,test), "test-xsd.xml"),
     {ok,Text} = file:read_file(FileName),
     Schemas = split_schemas(Text),
@@ -13,6 +11,12 @@ xsd_spec0_examples_test_() ->
        test_schema(Schema)}
       || {Nr, Schema} <- Schemas]}.
     %% foreach(Text, fun gen_test/1, []).
+
+run_nth(Nth) ->
+    FileName = filename:join(code:lib_dir(wsdler,test), "test-xsd.xml"),
+    {ok,Text} = file:read_file(FileName),
+    Schemas = split_schemas(Text),
+    ?_test(test_schema(lists:nth(Nth, Schemas))).
 
 test_schema(XML) ->
     fun() ->
