@@ -221,18 +221,18 @@ check_references(#collect_state{}=State) ->
 
 check_type_references(no_base, State) ->
     State;
-check_type_references({xsd,_}, State) ->
+check_type_references({xsd, _}, State) ->
     %% A built-in type.  Existence assumed.
     State;
 check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
-    io:format(user, "DB| check_type_references: ~p\n", [Key]),
+        io:format(user, "DB| check_type_references: ~p\n", [Key]),
     case dict:find(Key, TypeStates) of
         {ok, done}     -> State;
         {ok, visiting} -> error({cycle_in_type_hiearchy, Key});
         error ->
             case dict:find(Key, TypeDict) of
                 error ->
-                    error({unresolved_type_reference, Key});
+                    error({unresolved_type_reference, Key, dict:to_list(TypeDict)});
                 {ok, TypeNode} ->
                     %% {_Tag, Attrs, _Children} = Type,
                     BaseType = base_type_of(TypeNode), %wsdler_xml:attribute("base", Attrs),
@@ -283,28 +283,17 @@ base_type_of(Other) -> error({incomplete, base_type_of, Other}).
 %%%   redefinable ::= (simpleType | complexType | group | attributeGroup)
 %%%
 process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
-    %%     io:format("DB| import: ~p\n", [_Attrs]),
     Acc;
 process_schema_children(E={{xsd,"element"}, _, _}, Acc, TgtNS) ->
     Element = #element{name=Name} = process_element(E),
     QName = {TgtNS, Name},
-    %%io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName,Type]),
-    %% TODO: element should not be mixed with types!
     [{QName, Element#element{name=QName}} | Acc];
 process_schema_children(Node={{xsd,"simpleType"}, Attrs,_}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    %%     io:format("DB| define type: ~s:~s\n  = ~p\n", [TgtNS,TypeName, Type]),
-    %%     try
-    %%         Gen = wsdler_generators:generator(Type),
-    %%         io:format("DB| generator: ~p\n", [Gen]),
-    %%         io:format("DB| sample: ~p\n", [triq_dom:sample(Gen)])
-    %%     catch _:Reason ->
-    %%             io:format("** Generator error: ~p\n", [Reason])
-    %%     end,
     [{{TgtNS,TypeName},process_simpleType(Node)} | Acc];
 process_schema_children(Node={{xsd,"complexType"}, Attrs, _}, Acc, TgtNS) ->
     TypeName = attribute("name",Attrs),
-    %%io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
+    io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
     [{{TgtNS,TypeName},process_complexType(Node)} | Acc].
 
 process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
@@ -323,17 +312,26 @@ process_complexType_children([]) ->
     {undefined, todo_process_complex_children} ;
 process_complexType_children(Attributes=[{{xsd,"attribute"},_,_}|_]) ->
     {undefined, [process_attribute(Attr) || Attr <- Attributes]} ;
+process_complexType_children([Node={{xsd,"all"},_,_} | Attributes]) ->
+    {process_all(Node), [process_attribute(Attr) || Attr <- Attributes]};
 process_complexType_children([Node={{xsd,"sequence"},_,_} | Attributes]) ->
     {process_sequence(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
 process_complexType_children([Node={{xsd,"choice"},_,_} | Attributes]) ->
     {process_choice(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
 process_complexType_children([{{xsd,"simpleContent"},_,[Child]}]) -> %% TODO, only one child for now
-    {process_simpleContent_child(Child), []}.
+    {process_simpleContent_child(Child), []};
+process_complexType_children([{{xsd,"complexContent"},_,[Child]}]) -> %% TODO, only one child for now
+    {process_complexContent_child(Child), []}.
+
+process_all({{xsd, "all"}, _, Children}) ->
+    #all{content=[process_element(Child) || Child <- Children]}.
 
 process_sequence({{xsd, "sequence"}, _Attr, Children}) ->
     #sequence{content=[process_sequence_children(Child) || Child <- Children]}.
 process_sequence_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
+process_sequence_children(Node={{xsd, "all"},_,_}) ->
+    process_all(Node);
 process_sequence_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node);
 process_sequence_children(Node={{xsd, "choice"},_,_}) ->
@@ -343,6 +341,11 @@ process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
 			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+
+process_complexContent_child({{xsd,"restriction"},Attributes ,Children}) ->
+    BaseTypeQname = attribute("base", Attributes),
+    #complexContentRestriction{base = BaseTypeQname,
+			       attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
 
 process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
     {anyAttribute, todo_anyAttribute};
@@ -380,6 +383,8 @@ process_choice_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
 process_choice_children(Node={{xsd, "choice"},_,_}) ->
     process_choice(Node);
+process_choice_children(Node={{xsd, "group"}, Attrs,[]}) ->
+    #group{ref=attribute("ref",Attrs)};
 process_choice_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node).
 
@@ -448,8 +453,12 @@ process_restriction_child({{xsd, "totalDigits"}, Attrs, _Children}, #restriction
     Value = attribute("value", Attrs),
     R#restriction{totalDigits=Value}.
 
-strip_annotations([{{xsd,"annotation"}, _, _} | Rest]) ->
-    strip_annotations(Rest);
-strip_annotations(X) ->
-    X.
+strip_annotations(XML) ->
+    strip_annotations(XML, []).
+strip_annotations([{{xsd,"annotation"}, _, _} | Rest], Acc) ->
+    strip_annotations(Rest, Acc);
+strip_annotations([H|R], Acc) ->
+    strip_annotations(R, [H|Acc]);
+strip_annotations([], Acc) ->
+    lists:reverse(Acc).
 
