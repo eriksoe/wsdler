@@ -18,6 +18,11 @@ doc/%.html: doc/%.asciidoc
 
 clean:
 	rm ebin/*.beam;
-	rm test/*.beam
+	rm test/*.beam;
+	rm -r .eunit
+	rm ebin/*~
+	rm test/*~
+
+.IGNORE: clean
 
 .PHONY: compile setup test dialyze doc
