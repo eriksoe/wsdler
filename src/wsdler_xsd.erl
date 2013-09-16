@@ -38,8 +38,8 @@ schema_to_type_list(Schema) ->
 %%%    Result: a type-dict?
 %%%    Result: elements+groups+simple/complexTypes.
 %%% 3. Order types by the partial order defined by the type hierarchy.
-%%%    Check references simultaneously.
 %%% 4. Convert from XML to internal representation.
+%%%    Check references simultaneously.
 %%% 5. Make inferences.
 %%%    - Simple types:
 %%%      - Determine basic-types.
@@ -77,7 +77,7 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
                                dict:to_list(X);
                           true -> X
                        end || X <- tuple_to_list(State1)]}]),
-    check_references(State1),
+    build_type_order(State1),
     Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
                         [],
                         strip_annotations(Children)),
@@ -185,14 +185,7 @@ collect_defs_action(element,"key") -> [];
 collect_defs_action(element,"unique") -> [];
 collect_defs_action(element,"keyref") -> [].
 
-%%%========== Phase 3: Check references & establish partial order ==========
-%%% References in question:
-%%% - simpleType.restriction.base
-%%% - complexType.simpleContent.{restriction/extension}.base
-%%% - complexType.complexContent.{restriction/extension}.base
-%%% - element.ref
-%%% - group.ref
-%%% - attributeGroup.ref
+%%%========== Phase 3: Establish partial order of types ==========
 
 %%% State from phase 3:
 -record(refcheck_state, {
@@ -203,7 +196,7 @@ collect_defs_action(element,"keyref") -> [].
           type_order :: [_]
          }).
 
-check_references(#collect_state{}=State) ->
+build_type_order(#collect_state{}=State) ->
     TypeDict = State#collect_state.types,
     {_,_,TypeOrder} =
         lists:foldl(fun check_type_references/2,
@@ -273,6 +266,55 @@ base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
             wsdler_xml:attribute("base", Attrs2)
     end;
 base_type_of(Other) -> error({incomplete, base_type_of, Other}).
+
+%%%========== Phase 4: Convert to internal form ==========
+convert_to_internal_form(#collect_state{
+                            elements = Elements,
+                            groups = Groups,
+                            attr_groups = AttrGroups,
+                            types = Types
+                           }=State) ->
+    NewElements = convert_elements(Elements, State),
+    dummy.
+%%% References in question:
+%%% - simpleType.restriction.base
+%%% - complexType.simpleContent.{restriction/extension}.base
+%%% - complexType.complexContent.{restriction/extension}.base
+%%% - element.ref
+%%% - group.ref
+%%% - attributeGroup.ref
+
+convert_elements(Elements,State) ->
+    dict:map(fun (X)->process_element(X) end, Elements).
+
+process_element({{xsd,"element"}, Attrs, []}) ->
+     case attribute("ref", Attrs, none) of
+	none ->
+	    ElemName = attribute("name",Attrs),
+	    #element{name=ElemName}; % TODO: type
+	Qname ->
+	    #elementRef{ref=Qname} % TODO: check_element_existence(Qname)}
+    end;
+process_element({{xsd,"element"}, Attrs, Children}) ->
+    ElemName = attribute("name",Attrs),
+    case strip_annotations(Children) of
+	[Child] ->
+	    #element{name=ElemName, type=process_element_child(Child)};
+	[] ->
+	    #element{name=ElemName}
+end.
+process_element_child(Node={{xsd, "simpleType"},_,_}) ->
+    process_simpleType(Node);
+process_element_child(Node={{xsd, "complexType"},_,_}) ->
+    process_complexType(Node).
+
+check_element_existence(ElementID, #collect_state{elements=Dict}) ->
+    dict:is_key(ElementID, Dict)
+        orelse error({unresolved_element, ElementID}).
+
+check_group_existence(GroupID, #collect_state{groups=Dict}) ->
+    dict:is_key(GroupID, Dict)
+        orelse error({unresolved_group, GroupID}).
 
 %%%=========================================================================
 
@@ -356,26 +398,6 @@ process_attribute({{xsd, "attribute"},Attributes, Children}) ->
     #attribute{name=Name, type=Type, use=Use,
 	       simpleType=case Children of [Child] -> process_simpleType(Child); [] -> undefined end}.
 
-process_element({{xsd,"element"}, Attrs, []}) ->
-     case attribute("ref", Attrs, none) of
-	none ->
-	    ElemName = attribute("name",Attrs),
-	    #element{name=ElemName}; % TODO: type
-	Qname ->
-	    #elementRef{ref=Qname}
-    end;
-process_element({{xsd,"element"}, Attrs, Children}) ->
-    ElemName = attribute("name",Attrs),
-    case strip_annotations(Children) of
-	[Child] ->
-	    #element{name=ElemName, type=process_element_child(Child)};
-	[] ->
-	    #element{name=ElemName}
-end.
-process_element_child(Node={{xsd, "simpleType"},_,_}) ->
-    process_simpleType(Node);
-process_element_child(Node={{xsd, "complexType"},_,_}) ->
-    process_complexType(Node).
 
 process_choice({{xsd,"choice"}, _Attr, Children}) ->
     #choice{content=[process_choice_children(Child) || Child <- Children]}.
@@ -462,3 +484,6 @@ strip_annotations([H|R], Acc) ->
 strip_annotations([], Acc) ->
     lists:reverse(Acc).
 
+%%%==================== Utilities ========================================
+dict_foreach(Fun, Dict) when is_function(Fun,1) ->
+    dict:fold(fun(X,D) -> Fun(X) end, dummy, Dict).
