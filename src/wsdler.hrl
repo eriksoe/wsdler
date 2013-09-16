@@ -30,14 +30,18 @@
 
 -type(ncname() :: string()). %% "non-colonized" name
 -type(anyURI() :: string()).
--type(qname() :: {anyURI(), ncname()}).
+-type(qname() :: {anyURI(), ncname()} | ncname()).
+-record(complexContentRestriction, {base :: qname(),
+				    attributes :: [#attribute{}]}).
 -record(simpleContentExtension, {base :: qname(),
 				 attributes :: [#attribute{}]}).
 -type(element_alike() :: term()). %% element, choice, sequence, ...
+-record(group, {ref :: qname()}).
 -record(choice,   {content :: [element_alike()]}).
 -record(sequence, {content :: [element_alike()]}).
+-record(all, {content :: [element_alike()]}).
 
--record(complexType, {content :: #simpleContentExtension{} | element_alike(),
+-record(complexType, {content :: #simpleContentExtension{} | #complexContentRestriction{} | element_alike(),
 		      attributes :: #attribute{}}).
 
 -type(typedef() :: #simpleType{} | #complexType{}).
