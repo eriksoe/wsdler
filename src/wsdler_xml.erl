@@ -52,6 +52,7 @@ symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
 symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
 symbolic_name(Name, NS,       _) -> {NS, Name}.
 
-qnamePred({attribute, {xsd, "restriction"}, {_,"base"}}) -> true;
-qnamePred({attribute, {xsd, "extension"  }, {_,"base"}}) -> true;
+qnamePred({attribute, {xsd, "attribute"},   {[],"type"}}) -> true;
+qnamePred({attribute, {xsd, "restriction"}, {[],"base"}}) -> true;
+qnamePred({attribute, {xsd, "extension"  }, {[],"base"}}) -> true;
 qnamePred(_) -> false.
