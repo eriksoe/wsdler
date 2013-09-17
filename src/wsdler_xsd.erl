@@ -118,13 +118,16 @@ perform_collect_defs_action(add_to_includes_etc, Node, Acc) ->
     OldList = Acc#collect_state.includes_etc,
     {removed, Acc#collect_state{includes_etc=[Node | OldList]}};
 perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
-                            Node={_,Attrs,_}, Acc) ->
+                            Node={Tag,Attrs,_}, Acc) ->
     TargetNS = Acc#collect_state.targetNS,
     ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
+    Key = if is_reference(ID) -> ID;
+             true -> {TargetNS, ID}
+          end,
     Old = element(FNr,Acc),
-    New = dict:store({TargetNS,ID}, Node, Old),
+    New = dict:store(Key, Node, Old),
     Acc2 = setelement(FNr, Acc, New),
-    {{named,ID}, Acc2};
+    {{ref,Tag,Key}, Acc2};
 perform_collect_defs_action({recurse, RecStateName}, {Tag,Attrs,Children}, Acc) ->
     {Children2,Acc2} = lists:mapfoldl(fun(C,A) ->
                                        do_collect_defs(RecStateName, C, A)
@@ -271,6 +274,8 @@ convert_to_internal_form(#collect_state{
 %%% - group.ref
 %%% - attributeGroup.ref
 
+%%%========== Elements
+
 convert_elements(Elements,State) ->
     dict:map(fun (X)->process_element(X) end, Elements).
 
@@ -294,6 +299,13 @@ process_element_child(Node={{xsd, "simpleType"},_,_}) ->
     process_simpleType(Node);
 process_element_child(Node={{xsd, "complexType"},_,_}) ->
     process_complexType(Node).
+
+%%%========== Groups
+%%%========== Attribute groups
+
+%%%========== Types
+
+%%%==========
 
 check_element_existence(ElementID, #collect_state{elements=Dict}) ->
     dict:is_key(ElementID, Dict)
