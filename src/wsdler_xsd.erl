@@ -58,19 +58,6 @@ schema_to_type_list(Schema) ->
 parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
     TgtNS = attribute("targetNamespace", Attrs, undefined),
     %% TODO: Handle import/include/redefine.
-    %% Handle children in the following order:
-    %% 1. simpleTypes (depends only on other simple types)
-    %% 2. elements (depends on simpleTypes)
-    %% 3. groups (depends on simpleTypes and elements)
-    %% 4. complextypes (depends on all others)
-    _SimpleTypes = [{{simpleType,attribute("name",As)}, E}
-                || {{xsd,"simpleType"},As,_}=E <- Children],
-    _Elements = [{{element,ID}, E}
-                || {{xsd,"element"},As,_}=E <- Children,
-                   {{"","id"}, ID} <- As],
-    _Groups = [{{group,ID}, E}
-              || {{xsd,"group"},As,_}=E <- Children,
-                 {{"","id"}, ID} <- As],
     {Root1,State1} = collect_defs_schema_node(_E),
     io:format(user, "DB| Phase 1 output: ~p\n",
               [{Root1,[if element(1,X)==dict ->
