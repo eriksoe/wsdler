@@ -64,7 +64,8 @@ parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
                                dict:to_list(X);
                           true -> X
                        end || X <- tuple_to_list(State1)]}]),
-    build_type_order(State1),
+    State2 = build_type_order(State1),
+    _State3 = convert_to_internal_form(State2),
     Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
                         [],
                         strip_annotations(Children)),
@@ -258,7 +259,7 @@ base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
 base_type_of(Other) -> error({incomplete, base_type_of, Other}).
 
 %%%========== Phase 4: Convert to internal form ==========
-convert_to_internal_form(#collect_state{
+convert_to_internal_form(#refcheck_state{
                             elements = Elements,
                             groups = Groups,
                             attr_groups = AttrGroups,
@@ -276,8 +277,8 @@ convert_to_internal_form(#collect_state{
 
 %%%========== Elements
 
-convert_elements(Elements,State) ->
-    dict:map(fun (X)->process_element(X) end, Elements).
+convert_elements(Elements,_State) ->
+    dict:map(fun (_K,V)->process_element(V) end, Elements).
 
 process_element({{xsd,"element"}, Attrs, []}) ->
      case attribute("ref", Attrs, none) of
@@ -404,7 +405,7 @@ process_choice_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
 process_choice_children(Node={{xsd, "choice"},_,_}) ->
     process_choice(Node);
-process_choice_children(Node={{xsd, "group"}, Attrs,[]}) ->
+process_choice_children({{xsd, "group"}, Attrs,[]}) ->
     #group{ref=attribute("ref",Attrs)};
 process_choice_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node).
@@ -485,4 +486,4 @@ strip_annotations([], Acc) ->
 
 %%%==================== Utilities ========================================
 dict_foreach(Fun, Dict) when is_function(Fun,1) ->
-    dict:fold(fun(X,D) -> Fun(X) end, dummy, Dict).
+    dict:fold(fun(X,_D) -> Fun(X) end, dummy, Dict).
