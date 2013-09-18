@@ -145,13 +145,14 @@ perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
                             Node={Tag,Attrs,_}, Acc) ->
     TargetNS = Acc#collect_state.targetNS,
     ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
+    OtherAttrs = lists:keydelete(IDAttr, 1, Attrs),
     Key = if is_reference(ID) -> ID;
              true -> {TargetNS, ID}
           end,
     Old = element(FNr,Acc),
     New = dict:store(Key, Node, Old),
     Acc2 = setelement(FNr, Acc, New),
-    {{ref,Tag,Key}, Acc2};
+    {{ref,Tag,Key,OtherAttrs}, Acc2};
 perform_collect_defs_action({recurse, RecStateName}, {Tag,Attrs,Children}, Acc) ->
     {Children2,Acc2} = lists:mapfoldl(fun(C,A) ->
                                        do_collect_defs(RecStateName, C, A)
@@ -320,18 +321,21 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
     ElemName = attribute("name",Attrs,undefined),
     TypeName = attribute("type",Attrs,undefined),
     io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
-    %% TODO: Handle minOccurs, maxOccurs.
     %% TODO: Handle attribute children.
-    case TypeName of
-        undefined ->
-            case Children of
-                [{ref, {xsd,Tag}, Ref}] when Tag=:="simpleType";
-                                             Tag =:= "complexType" ->
-                    #element{name=ElemName, type=Ref}
-            end;
-        Type ->
-            #element{name=ElemName, type=Type}
-    end.
+    {Type,Constraints} =
+        case TypeName of
+            undefined ->
+                case Children of
+                    [{ref, {xsd,Tag}, Ref,_} | Constraints0]
+                      when Tag=:="simpleType";
+                           Tag=:="complexType" ->
+                        {Ref, Constraints0}
+                end;
+            _ ->
+                {TypeName, Children}
+        end,
+    %% TODO: Handle constraints.
+    #element{name=ElemName, type=check_type_existence(Type,State)}.
 
 
 process_element({{xsd,"element"}, Attrs, Children}) ->
@@ -363,19 +367,23 @@ process_element({{xsd,"element"}, Attrs, Children}) ->
 
 %%%========== Types
 convert_types(Types,_State) ->
-    dict:map(fun (_K,V={{xsd,"simpleType"},_,_})->process_simpleType(V);
-                 (_K,V={{xsd,"complexType"},_,_})->process_complexType(V)
+    dict:map(fun (_K,V={{xsd,"simpleType"},_,_})  -> process_simpleType(V);
+                 (_K,V={{xsd,"complexType"},_,_}) -> process_complexType(V)
              end, Types).
 
 %%%==========
 
-check_element_existence(ElementID, #collect_state{elements=Dict}) ->
+check_element_existence(ElementID, #refcheck_state{elements=Dict}) ->
     dict:is_key(ElementID, Dict)
         orelse error({unresolved_element, ElementID}).
 
-check_group_existence(GroupID, #collect_state{groups=Dict}) ->
+check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
     dict:is_key(GroupID, Dict)
         orelse error({unresolved_group, GroupID}).
+
+check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
+    dict:is_key(TypeID, Dict)
+        orelse error({unresolved_type, TypeID}).
 
 %%%=========================================================================
 
