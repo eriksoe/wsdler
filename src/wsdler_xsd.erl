@@ -381,9 +381,11 @@ check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
     dict:is_key(GroupID, Dict)
         orelse error({unresolved_group, GroupID}).
 
+check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
     dict:is_key(TypeID, Dict)
-        orelse error({unresolved_type, TypeID}).
+        orelse error({unresolved_type, TypeID}),
+    TypeID.
 
 %%%=========================================================================
 
