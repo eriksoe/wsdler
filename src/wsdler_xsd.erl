@@ -8,7 +8,14 @@
 -include("wsdler.hrl").
 -import(wsdler_xml, [attribute/2, attribute/3, list_attribute/2]).
 
--opaque(schema() :: dict()).
+-record(schema, {
+          elements :: dict(), % of #element{}
+          groups :: dict(),   % of ??
+          attr_groups :: dict(), % of ??
+          types :: dict(),    % of typedef()
+          type_order :: [qname()]
+         }).
+-opaque(schema() :: #schema{}).
 
 parse_file(FileName) ->
     {ok,Text} = file:read_file(FileName),
@@ -26,8 +33,13 @@ empty_schema() ->
 merge_schemas(TypeDict1, TypeDict2) ->
     dict:merge(no_conflicts_assumed, TypeDict1, TypeDict2).
 
-schema_to_type_list(Schema) ->
-    dict:to_list(Schema).
+schema_to_type_list(#schema{types=Types}) ->
+    dict:to_list(Types).
+
+schema_to_readable(#schema{types=Types, elements=Elements}) ->
+    {schema, [{types, dict:to_list(Types)},
+              {elements, dict:to_list(Elements)}
+             ]}. % TODO: Include other fields
 
 %%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -37,7 +49,9 @@ schema_to_type_list(Schema) ->
 %%% 2. Handle imports/includes/redefines (handwaving).
 %%%    Result: a type-dict?
 %%%    Result: elements+groups+simple/complexTypes.
-%%% 3. Order types by the partial order defined by the type hierarchy.
+%%% 3. Handle hierarchies
+%%%    - Order types by the partial order defined by the type hierarchy.
+%%%    - Resolve element "ref" references.
 %%% 4. Convert from XML to internal representation.
 %%%    Check references simultaneously.
 %%% 5. Make inferences.
@@ -55,21 +69,33 @@ schema_to_type_list(Schema) ->
           targetNS :: string()
          }).
 
-parse_schema_node({{xsd,"schema"}, Attrs, Children}=_E) ->
-    TgtNS = attribute("targetNamespace", Attrs, undefined),
+%%% State from phase 3:
+-record(refcheck_state, {
+          elements :: dict(), % of XML subtree
+          groups :: dict(),
+          attr_groups :: dict(),
+          types :: dict(),
+          type_order :: [_]
+         }).
+
+
+parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode) ->
     %% TODO: Handle import/include/redefine.
-    {Root1,State1} = collect_defs_schema_node(_E),
+    State1 = collect_defs_schema_node(SchemaNode),
     io:format(user, "DB| Phase 1 output: ~p\n",
-              [{Root1,[if element(1,X)==dict ->
-                               dict:to_list(X);
-                          true -> X
-                       end || X <- tuple_to_list(State1)]}]),
+              [[if element(1,X)==dict ->
+                        dict:to_list(X);
+                   true -> X
+                end || X <- tuple_to_list(State1)]]),
     State2 = build_type_order(State1),
-    _State3 = convert_to_internal_form(State2),
-    Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
-                        [],
-                        strip_annotations(Children)),
-    build_type_dict(Types).
+    Schema = convert_to_internal_form(State2),
+    io:format(user, "DB| Phase 3 output: ~p\n", [schema_to_readable(Schema)]),
+    Schema.
+
+    %% Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
+    %%                     [],
+    %%                     strip_annotations(Children)),
+    %% build_type_dict(Types).
 
 build_type_dict(Types) when is_list(Types) ->
     lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
@@ -97,12 +123,14 @@ build_type_dict(Types) when is_list(Types) ->
 
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
     TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, undefined),
-    do_collect_defs(root, E, #collect_state{elements    = dict:new(),
-                                            groups      = dict:new(),
-                                            attr_groups = dict:new(),
-                                            types       = dict:new(),
-                                            includes_etc = [],
-                                            targetNS    = TargetNS}).
+    InitState = #collect_state{elements    = dict:new(),
+                               groups      = dict:new(),
+                               attr_groups = dict:new(),
+                               types       = dict:new(),
+                               includes_etc = [],
+                               targetNS    = TargetNS},
+    {_,Result} = do_collect_defs(root, E, InitState),
+    Result.
 
 %%% Tree state machine engine:
 do_collect_defs(StateName, {{xsd,Tag}, _Attrs, _Children}=E, Acc) ->
@@ -177,15 +205,6 @@ collect_defs_action(element,"unique") -> [];
 collect_defs_action(element,"keyref") -> [].
 
 %%%========== Phase 3: Establish partial order of types ==========
-
-%%% State from phase 3:
--record(refcheck_state, {
-          elements :: dict(), % of XML subtree
-          groups :: dict(),
-          attr_groups :: dict(),
-          types :: dict(),
-          type_order :: [_]
-         }).
 
 build_type_order(#collect_state{}=State) ->
     TypeDict = State#collect_state.types,
@@ -263,10 +282,17 @@ convert_to_internal_form(#refcheck_state{
                             elements = Elements,
                             groups = Groups,
                             attr_groups = AttrGroups,
-                            types = Types
+                            types = Types,
+                            type_order = TypeOrder
                            }=State) ->
     NewElements = convert_elements(Elements, State),
-    dummy.
+    NewTypes = convert_types(Types, State),
+    #schema{elements=NewElements,
+            groups=Groups,
+            attr_groups=AttrGroups,
+            types=NewTypes,
+            type_order=TypeOrder}.
+
 %%% References in question:
 %%% - simpleType.restriction.base
 %%% - complexType.simpleContent.{restriction/extension}.base
@@ -277,34 +303,59 @@ convert_to_internal_form(#refcheck_state{
 
 %%%========== Elements
 
-convert_elements(Elements,_State) ->
-    dict:map(fun (_K,V)->process_element(V) end, Elements).
+convert_elements(Elements,State) ->
+    dict:map(fun (_K,V)->convert_element(V,State) end, Elements).
 
-process_element({{xsd,"element"}, Attrs, []}) ->
-     case attribute("ref", Attrs, none) of
-	none ->
-	    ElemName = attribute("name",Attrs),
-	    #element{name=ElemName}; % TODO: type
-	Qname ->
-	    #elementRef{ref=Qname} % TODO: check_element_existence(Qname)}
-    end;
+convert_element({{xsd,"element"}, Attrs, Children}, State) ->
+    ElemName = attribute("name",Attrs,undefined),
+    TypeName = attribute("type",Attrs,undefined),
+    io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
+    %% TODO: Handle minOccurs, maxOccurs.
+    %% TODO: Handle attribute children.
+    case TypeName of
+        undefined ->
+            case Children of
+                [{ref, {xsd,Tag}, Ref}] when Tag=:="simpleType";
+                                             Tag =:= "complexType" ->
+                    #element{name=ElemName, type=Ref}
+            end;
+        Type ->
+            #element{name=ElemName, type=Type}
+    end.
+
+
 process_element({{xsd,"element"}, Attrs, Children}) ->
-    ElemName = attribute("name",Attrs),
-    case strip_annotations(Children) of
-	[Child] ->
-	    #element{name=ElemName, type=process_element_child(Child)};
-	[] ->
-	    #element{name=ElemName}
-end.
-process_element_child(Node={{xsd, "simpleType"},_,_}) ->
-    process_simpleType(Node);
-process_element_child(Node={{xsd, "complexType"},_,_}) ->
-    process_complexType(Node).
+    {'TODO', process_element, Attrs, Children}.
+%% process_element({{xsd,"element"}, Attrs, []}) ->
+%%      case attribute("ref", Attrs, none) of
+%% 	none ->
+%% 	    ElemName = attribute("name",Attrs),
+%% 	    #element{name=ElemName}; % TODO: type
+%% 	Qname ->
+%% 	    #elementRef{ref=Qname} % TODO: check_element_existence(Qname)}
+%%     end;
+%% process_element({{xsd,"element"}, Attrs, Children}) ->
+%%     ElemName = attribute("name",Attrs),
+%%     case strip_annotations(Children) of
+%% 	[Child] ->
+%% 	    #element{name=ElemName, type=process_element_child(Child)};
+%% 	[] ->
+%% 	    #element{name=ElemName}
+%% end.
+
+%% process_element_child(Node={{xsd, "simpleType"},_,_}) ->
+%%     process_simpleType(Node);
+%% process_element_child(Node={{xsd, "complexType"},_,_}) ->
+%%     process_complexType(Node).
 
 %%%========== Groups
 %%%========== Attribute groups
 
 %%%========== Types
+convert_types(Types,_State) ->
+    dict:map(fun (_K,V={{xsd,"simpleType"},_,_})->process_simpleType(V);
+                 (_K,V={{xsd,"complexType"},_,_})->process_complexType(V)
+             end, Types).
 
 %%%==========
 
@@ -487,3 +538,4 @@ strip_annotations([], Acc) ->
 %%%==================== Utilities ========================================
 dict_foreach(Fun, Dict) when is_function(Fun,1) ->
     dict:fold(fun(X,_D) -> Fun(X) end, dummy, Dict).
+
