@@ -1,6 +1,7 @@
 -module(wsdler_xsd).
 
 %%% Purpose: Conversion of XSD DOMs into internal model.
+%%% TODO: expand this descirption...
 
 -export([parse_file/1, parse_string/1, parse_schema_node/1]).
 -export([empty_schema/0, schema_to_type_list/1, merge_schemas/2]).
@@ -41,7 +42,10 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
               {elements, dict:to_list(Elements)}
              ]}. % TODO: Include other fields
 
-%%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%% Compiler: XSD -> internal model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% State from phase 1:
 -record(collect_state, {
@@ -112,24 +116,10 @@ build_type_dict(Types) when is_list(Types) ->
                 dict:new(),
                 Types).
 
-%%%==================== Phase 1: Collect definitions ====================
-%% collect_defs_schema_children({{xsd,Tag}, Attrs, Children}=E, Acc) ->
-%%     if
-%%         Tag=:="import";
-%%         Tag=:="include";
-%%         Tag=:="redefine" ->
-%%             Acc#collect_state{includes_etc=[E | Acc#collect_state.includes_etc]};
-%%         Tag =:= "element" ->
-%%             {E2,Acc2} = collect_defs_element(E),
-%%             case wsdler_xml:attribute("id",Attrs,undefined) of
-%%                 undefined -> Acc2;
-%%                 ID ->
-%%                     OldDict = Acc#collect_state.elements,
-%%                     Acc2#collect_state{element=dict:store(ID,E2,OldDict)}
-%%             end;
-%%         Tag =:= "group" ->
-%%             'TODO'
-%%     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%% Phase 1: Collect definitions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
     TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, undefined),
@@ -215,7 +205,17 @@ collect_defs_action(element,"key") -> [];
 collect_defs_action(element,"unique") -> [];
 collect_defs_action(element,"keyref") -> [].
 
-%%%========== Phase 3: Establish partial order of types ==========
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% Phase 2: %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% TODO
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% Phase 3: Establish partial order of types %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 build_type_order(#collect_state{}=State) ->
     TypeDict = State#collect_state.types,
@@ -288,7 +288,11 @@ base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
     end;
 base_type_of(Other) -> error({incomplete, base_type_of, Other}).
 
-%%%========== Phase 4: Convert to internal form ==========
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% Phase 4: Convert to internal form %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 convert_to_internal_form(#refcheck_state{
                             elements = Elements,
                             groups = Groups,
@@ -546,7 +550,11 @@ strip_annotations([H|R], Acc) ->
 strip_annotations([], Acc) ->
     lists:reverse(Acc).
 
-%%%==================== Utilities ========================================
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%% Utilities %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 dict_foreach(Fun, Dict) when is_function(Fun,1) ->
     dict:fold(fun(X,_D) -> Fun(X) end, dummy, Dict).
 
