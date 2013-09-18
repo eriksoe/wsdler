@@ -169,8 +169,10 @@ collect_defs_action(_,"annotation")    -> ignore;
 collect_defs_action(schema,"import")   -> add_to_includes_etc;
 collect_defs_action(schema,"include")  -> add_to_includes_etc;
 collect_defs_action(schema,"redefine") -> add_to_includes_etc;
+collect_defs_action(schema,"element") ->
+    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "name"}];
 collect_defs_action(_,"element") ->
-    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "id"}];
+    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "<none>"}];
 collect_defs_action(_,"group") ->
     [{recurse,group},   {add_to_dict_field, #collect_state.groups, "id"}];
 collect_defs_action(_,"attributeGroup") ->
