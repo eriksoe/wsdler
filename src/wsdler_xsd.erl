@@ -189,6 +189,7 @@ collect_defs_action(simpleType,"union")      -> {recurse, union};
 collect_defs_action(complexType,"simpleContent") -> {recurse,simpleContent};
 collect_defs_action(complexType,"complexContent") -> {recurse,complexContent};
 collect_defs_action(complexType,"all") -> {recurse,group};
+collect_defs_action(complexType,"choice")  -> {recurse,group};
 collect_defs_action(complexType,"sequence")  -> {recurse,group};
 collect_defs_action(complexType,"attributeGroup") -> {recurse,attributeGroup};
 collect_defs_action(complexType,"anyAttribute") -> [];
