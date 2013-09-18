@@ -20,9 +20,13 @@
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(element, {name :: _,
 		  type :: typedef()}).
+-record(element_instantiation, {element :: #element{},
+                                minOccurs :: integer(),
+                                maxOccurs :: integer() | unbounded}).
 
--record(elementRef, {ref :: qname()}).
--type(element() :: #element{} | #elementRef{}).
+%% -record(elementRef, {ref :: qname()}).
+%% -type(element() :: #element{} | #elementRef{}).
+-type(element() :: #element_instantiation{}).
 -record(attribute, {name :: ncname(),
 		    type :: qname(),
 		    use=optional :: optional | prohibited | required,
@@ -35,14 +39,15 @@
 				    attributes :: [#attribute{}]}).
 -record(simpleContentExtension, {base :: qname(),
 				 attributes :: [#attribute{}]}).
--type(element_alike() :: term()). %% element, choice, sequence, ...
 -record(group, {ref :: qname()}).
--record(choice,   {content :: [element_alike()]}).
--record(sequence, {content :: [element_alike()]}).
--record(all, {content :: [element_alike()]}).
+-record(choice,   {content :: [element_ish()]}).
+-record(sequence, {content :: [element_ish()]}).
+-record(all, {content :: [element_ish()]}).
+-type(element_ish() :: element_ish() | #group{} | #choice{} | #sequence{} | #all{}).
 
--record(complexType, {content :: #simpleContentExtension{} | #complexContentRestriction{} | element_alike(),
-		      attributes :: #attribute{}}).
+-record(complexType, {
+          content :: #simpleContentExtension{} | #complexContentRestriction{} | element_ish(), % ?
+          attributes :: #attribute{}}).
 
 -type(typedef() :: #simpleType{} | #complexType{}).
 
