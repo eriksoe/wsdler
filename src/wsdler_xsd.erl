@@ -43,22 +43,6 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
 
 %%%%%%%%%%%%% XSD parsing %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%% Algorithm sketch:
-%%% 1. Flatten representation/gather definitions.
-%%%    Lift nested element/group etc. up to top-level.
-%%% 2. Handle imports/includes/redefines (handwaving).
-%%%    Result: a type-dict?
-%%%    Result: elements+groups+simple/complexTypes.
-%%% 3. Handle hierarchies
-%%%    - Order types by the partial order defined by the type hierarchy.
-%%%    - Resolve element "ref" references.
-%%% 4. Convert from XML to internal representation.
-%%%    Check references simultaneously.
-%%% 5. Make inferences.
-%%%    - Simple types:
-%%%      - Determine basic-types.
-%%%      - Determine joint restrictions.
-
 %%% State from phase 1:
 -record(collect_state, {
           elements :: dict(), % of XML subtree
@@ -80,18 +64,36 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
 
 
 parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode) ->
-    %% TODO: Handle import/include/redefine.
-    %% Phase 1
+    %% Phase 1. Flatten representation/gather definitions.
+    %%          Lift nested element/group etc. up to top-level.
+
     State1 = collect_defs_schema_node(SchemaNode),
     debug1(State1),
 
-    %% Phase 2?
+    %% Phase 2. Handle imports/includes/redefines (handwaving).
+    %%          Result: a type-dict?
+    %%          Result: elements+groups+simple/complexTypes.
+
+    %% TODO: Handle import/include/redefine.
+
+    %% Phase 3. Handle hierarchies
+    %%           - Order types by the partial order defined by the
+    %%             type hierarchy.
+    %%           - Resolve element "ref" references.
+
     State2 = build_type_order(State1),
 
-    %% Phase 3?
-    Schema = convert_to_internal_form(State2),
-    debug3(Schema),
+    %% 4. Convert from XML to internal representation.
+    %%    Check references simultaneously.
 
+    Schema = convert_to_internal_form(State2),
+    debug4(Schema),
+
+    %% 5. Make inferences.
+    %%    - Simple types:
+    %%      - Determine basic-types.
+    %%      - Determine joint restrictions.
+    %% TODO
     Schema.
 
 
@@ -102,7 +104,7 @@ debug1(State) ->
                    true -> X
                 end || X <- tuple_to_list(State)]]).
 
-debug3(Schema) ->
+debug4(Schema) ->
     io:format(user, "DB| Phase 3 output: ~p\n", [schema_to_readable(Schema)]).
 
 build_type_dict(Types) when is_list(Types) ->
