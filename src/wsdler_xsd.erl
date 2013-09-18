@@ -320,24 +320,31 @@ convert_elements(Elements,State) ->
     dict:map(fun (_K,V)->convert_element(V,State) end, Elements).
 
 convert_element({{xsd,"element"}, Attrs, Children}, State) ->
+    %% TODO: Ugly case-ridden code. Simplify, eg by better preprocessing!
     ElemName = attribute("name",Attrs,undefined),
     TypeName = attribute("type",Attrs,undefined),
+    RefName = attribute("ref",Attrs,undefined),
     io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
     %% TODO: Handle attribute children.
-    {Type,Constraints} =
-        case TypeName of
-            undefined ->
-                case Children of
-                    [{ref, {xsd,Tag}, Ref,_} | Constraints0]
-                      when Tag=:="simpleType";
-                           Tag=:="complexType" ->
-                        {Ref, Constraints0}
-                end;
-            _ ->
-                {TypeName, Children}
+    {Type,Name,Constraints} =
+        case {TypeName,RefName,Children} of
+            {undefined,undefined, [{ref, {xsd,Tag}, Ref,_} | Constraints0]}
+              when Tag=:="simpleType";
+                   Tag=:="complexType" ->
+                {Ref, ElemName, Constraints0};
+            {undefined,RefName,Constraints0} when RefName /= undefined ->
+                {{xsd,"element"},Attrs2,Children2} = dict:fetch(RefName, State#refcheck_state.elements),
+                Type0 = case {attribute("type",Attrs2,undefined), Children2} of
+                            {undefined, [{ref,_,Type00,_}]} -> Type00;
+                            Type00 -> Type00
+                        end,
+                Name0 = attribute("name",Attrs2),
+                {Type0, Name0, Constraints0};
+            _ when TypeName /= undefined ->
+                {TypeName, ElemName, Children}
         end,
     %% TODO: Handle constraints.
-    #element{name=ElemName, type=check_type_existence(Type,State)}.
+    #element{name=Name, type=check_type_existence(Type,State)}.
 
 
 process_element({{xsd,"element"}, Attrs, Children}) ->
