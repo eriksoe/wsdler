@@ -111,11 +111,6 @@ debug1(State) ->
 debug4(Schema) ->
     io:format(user, "DB| Phase 3 output: ~p\n", [schema_to_readable(Schema)]).
 
-build_type_dict(Types) when is_list(Types) ->
-    lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
-                dict:new(),
-                Types).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%% Phase 1: Collect definitions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
