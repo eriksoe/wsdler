@@ -1,12 +1,17 @@
 ==== TO DO: ====
 XSD:
+- Split internal type for element into "name+attrs+children" and "occurs"
+- Handle "ref" case for elements (incl. occurs-attributes)
+- Type-annotations (and "dialyzer" Makefile target)
 - Handle complexContent (in complexType).
 - Handle import/include/redefine.
-- Phase 3b - Check references apart from "base".
 - Fix test sample file wrt. namespaces.
 - Fix test sample file wrt. incomplete schemas.
 
 - Resolve all TODOs.
+
+==== DOING ====
+- Integrate new phase-based approach. (eriksoe)
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
@@ -18,3 +23,4 @@ XSD:
   (By flattening)
 - Implement phase 1: "flatten and collect"
 - Phase 3a - Order types by "base" relation.
+
