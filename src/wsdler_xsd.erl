@@ -81,21 +81,29 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
 
 parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode) ->
     %% TODO: Handle import/include/redefine.
+    %% Phase 1
     State1 = collect_defs_schema_node(SchemaNode),
+    debug1(State1),
+
+    %% Phase 2?
+    State2 = build_type_order(State1),
+
+    %% Phase 3?
+    Schema = convert_to_internal_form(State2),
+    debug3(Schema),
+
+    Schema.
+
+
+debug1(State) ->
     io:format(user, "DB| Phase 1 output: ~p\n",
               [[if element(1,X)==dict ->
                         dict:to_list(X);
                    true -> X
-                end || X <- tuple_to_list(State1)]]),
-    State2 = build_type_order(State1),
-    Schema = convert_to_internal_form(State2),
-    io:format(user, "DB| Phase 3 output: ~p\n", [schema_to_readable(Schema)]),
-    Schema.
+                end || X <- tuple_to_list(State)]]).
 
-    %% Types = lists:foldl(fun (X,A)->process_schema_children(X,A,TgtNS) end,
-    %%                     [],
-    %%                     strip_annotations(Children)),
-    %% build_type_dict(Types).
+debug3(Schema) ->
+    io:format(user, "DB| Phase 3 output: ~p\n", [schema_to_readable(Schema)]).
 
 build_type_dict(Types) when is_list(Types) ->
     lists:foldl(fun({K,V},D) -> dict:store(K,V,D) end,
