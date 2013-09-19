@@ -1,0 +1,14 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:simpleType name="USStateList">
+    <xsd:list itemType="USState"/>
+  </xsd:simpleType>
+  <xsd:simpleType name="SixUSStates">
+    <xsd:restriction base="USStateList">
+      <xsd:length value="6"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="zipUnion">
+    <xsd:union memberTypes="USState listOfMyIntType"/>
+  </xsd:simpleType>
+</xsd:schema>

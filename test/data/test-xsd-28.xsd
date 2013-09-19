@@ -1,0 +1,20 @@
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
+  <include schemaLocation="http://www.example.com/schemas/address.xsd"/>
+  <complexType name="UKAddress">
+    <sequence>
+      <!-- content model of Address -->
+      <element name="name"   type="string"/>
+      <element name="street" type="string"/>
+      <element name="city"   type="string"/>
+
+      <!-- appended element declaration -->
+      <element name="postcode" type="ipo:UKPostcode"/>
+    </sequence>
+
+    <!-- appended attribute declaration -->
+    <attribute name="exportCode" type="positiveInteger" fixed="1"/>
+  </complexType>
+</schema>

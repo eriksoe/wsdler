@@ -1,0 +1,18 @@
+
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
+  <complexType name="RestrictedPurchaseOrderType">
+    <complexContent>
+      <restriction base="ipo:PurchaseOrderType">
+	<sequence>
+          <element name="shipTo" type="ipo:Address"/>
+          <element name="billTo" type="ipo:Address"/>
+          <element ref="ipo:comment" minOccurs="1"/>
+          <element name="items"  type="ipo:Items"/>
+	</sequence>
+      </restriction>
+    </complexContent>
+  </complexType>
+</schema>

@@ -1,0 +1,10 @@
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
+  <simpleType name="UKPostcode">
+    <restriction base="ipo:Postcode">
+      <pattern value="[A-Z]{2}\d\s\d[A-Z]{2}"/>
+    </restriction>
+  </simpleType>
+</schema>

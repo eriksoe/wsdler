@@ -1,0 +1,11 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:simpleType name="USState">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="AK"/>
+      <xsd:enumeration value="AL"/>
+      <xsd:enumeration value="AR"/>
+      <!-- and so on ... -->
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

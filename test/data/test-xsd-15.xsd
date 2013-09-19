@@ -1,0 +1,10 @@
+
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:group id="shipAndBill">
+    <xsd:sequence>
+      <xsd:element name="shipTo" type="USAddress"/>
+      <xsd:element name="billTo" type="USAddress"/>
+    </xsd:sequence>
+  </xsd:group>
+</xsd:schema>

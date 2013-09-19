@@ -1,0 +1,13 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:complexType name="text">
+    <xsd:complexContent mixed="true">
+      <xsd:restriction base="xsd:anyType">
+	<xsd:sequence>
+          <xsd:any processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+	</xsd:sequence>
+	<xsd:attribute ref="xml:lang"/>
+      </xsd:restriction>
+    </xsd:complexContent>
+  </xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,12 @@
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
+  <simpleType name="UKPostcode">
+    <restriction base="ipo:Postcode">
+      <pattern value="[A-Z]{2}\d\d[A-Z]{2}"/>
+      <!-- illegal attempt to modify facet fixed in base type -->
+      <length value="6" fixed="true"/>
+    </restriction>
+  </simpleType>
+</schema>

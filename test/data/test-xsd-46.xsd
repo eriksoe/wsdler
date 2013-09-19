@@ -1,0 +1,15 @@
+
+<schema targetNamespace="http://www.example.com/IPO"
+        xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:ipo="http://www.example.com/IPO">
+  <element name="htmlExample">
+    <complexType>
+      <sequence>
+	<any namespace="http://www.w3.org/1999/xhtml"
+             minOccurs="1" maxOccurs="unbounded"
+             processContents="skip"/>
+      </sequence>
+      <anyAttribute namespace="http://www.w3.org/1999/xhtml"/>
+    </complexType>
+  </element>
+</schema>

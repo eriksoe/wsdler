@@ -1,0 +1,10 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:element name="items" type="Items">
+    <xsd:unique name="partNumAndName">
+      <xsd:selector xpath="item"/>
+      <xsd:field    xpath="@partNum"/>
+      <xsd:field    xpath="productName"/>
+    </xsd:unique>
+  </xsd:element>
+</xsd:schema>
