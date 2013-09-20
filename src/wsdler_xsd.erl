@@ -244,7 +244,7 @@ check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
         error ->
             case dict:find(Key, TypeDict) of
                 error ->
-                    error({unresolved_type_reference, Key, dict:to_list(TypeDict)});
+                    error({unresolved_type_reference, Key, dict:fetch_keys(TypeDict)});
                 {ok, TypeNode} ->
                     %% {_Tag, Attrs, _Children} = Type,
                     BaseType = base_type_of(TypeNode), %wsdler_xml:attribute("base", Attrs),
@@ -335,10 +335,12 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
                    Tag=:="complexType" ->
                 {Ref, ElemName, Constraints0};
             {undefined,RefName,Constraints0} when RefName /= undefined ->
-                {{xsd,"element"},Attrs2,Children2} = dict:fetch(RefName, State#refcheck_state.elements),
+                {{xsd,"element"},Attrs2,Children2} =
+                    check_element_existence(RefName, State),
+                    dict:fetch(RefName, State#refcheck_state.elements),
                 Type0 = case {attribute("type",Attrs2,undefined), Children2} of
                             {undefined, [{ref,_,Type00,_}]} -> Type00;
-                            Type00 -> Type00
+                            {Type00,_} -> Type00
                         end,
                 Name0 = attribute("name",Attrs2),
                 {Type0, Name0, Constraints0};
@@ -395,7 +397,7 @@ check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
 check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
     dict:is_key(TypeID, Dict)
-        orelse error({unresolved_type, TypeID}),
+        orelse error({unresolved_type_reference, TypeID, dict:fetch_keys(Dict)}),
     TypeID.
 
 %%%=========================================================================
