@@ -328,6 +328,8 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
     %% TODO: Handle attribute children.
     {Type,Name,Constraints} =
         case {TypeName,RefName,Children} of
+            {undefined, undefined, []} ->
+                {{xsd,"anyType"}, ElemName, []};
             {undefined,undefined, [{ref, {xsd,Tag}, Ref,_} | Constraints0]}
               when Tag=:="simpleType";
                    Tag=:="complexType" ->
