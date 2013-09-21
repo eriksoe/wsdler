@@ -6,9 +6,31 @@ XSD:
 - Handle complexContent (in complexType).
 - Handle import/include/redefine.
 - Fix test sample file wrt. namespaces.
+  * test-xsd-1: Items
+  * test-xsd-14: Items
+  * test-xsd-15: USAddress
+  * test-xsd-16: PurchaseOrderType
+  * test-xsd-15: Items
+  * test-xsd-31: string
+  * test-xsd-39: Items
 - Fix test sample file wrt. incomplete schemas.
+  * test-xsd-42: USAddress
+  * test-xsd-27: UKPostcode
+  * test-xsd-18: element "comment"
+  * test-xsd-29: PurchaseOrderType
+  * test-xsd-31: 
+  * test-xsd-35:
+  * test-xsd-28
+  * test-xsd-36
+  * test-xsd-19
 
 - Resolve all TODOs.
+
+== Milestone: Old and new XSD approach fully integrated.
+== Milestone: Ability to perform a WSDL call, with any request content.
+== Milestone: Ability to perform a WSDL call, with valid request content.
+== Milestone: xml-lint tests succeed for schemas in test/data.
+== Milestone: xml-lint tests succeed for randomly generated schemas.
 
 ==== DOING ====
 - Integrate new phase-based approach. (eriksoe)
