@@ -222,7 +222,6 @@ build_type_order(#collect_state{}=State) ->
                     {TypeDict, dict:new(), []},
                     dict:fetch_keys(TypeDict)),
     %% TODO: Check other references.
-    io:format(user, "DB| check_type_references: type order: ~p\n", [TypeOrder]),
     #refcheck_state{
                elements    = State#collect_state.elements,
                groups      = State#collect_state.groups,
@@ -237,7 +236,6 @@ check_type_references({xsd, _}, State) ->
     %% A built-in type.  Existence assumed.
     State;
 check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
-        io:format(user, "DB| check_type_references: ~p\n", [Key]),
     case dict:find(Key, TypeStates) of
         {ok, done}     -> State;
         {ok, visiting} -> error({cycle_in_type_hiearchy, Key});
