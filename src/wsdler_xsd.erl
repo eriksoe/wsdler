@@ -318,31 +318,33 @@ convert_elements(Elements,State) ->
     dict:map(fun (_K,V)->convert_element(V,State) end, Elements).
 
 convert_element({{xsd,"element"}, Attrs, Children}, State) ->
-    %% TODO: Ugly case-ridden code. Simplify, eg by better preprocessing!
+    case attribute("ref",Attrs,undefined) of
+        undefined ->
+            convert_element2(Attrs, Children, State);
+        RefName ->
+            check_element_existence(RefName, State),
+            {{xsd,"element"},Attrs2,Children2} =
+                dict:fetch(RefName, State#refcheck_state.elements),
+            convert_element2(Attrs2,Children2, State)
+    end.
+
+convert_element2(Attrs, Children, State) ->
     ElemName = attribute("name",Attrs,undefined),
     TypeName = attribute("type",Attrs,undefined),
-    RefName = attribute("ref",Attrs,undefined),
     io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
-    %% TODO: Handle attribute children.
+    %% TODO: Handle <attribute> children.
     {Type,Name,Constraints} =
-        case {TypeName,RefName,Children} of
-            {undefined, undefined, []} ->
+        case {TypeName,Children} of
+            {undefined, []} ->
+                io:format(user, "DB| convert_element case 1: ~p\n", [{}]),
                 {{xsd,"anyType"}, ElemName, []};
-            {undefined,undefined, [{ref, {xsd,Tag}, Ref,_} | Constraints0]}
+            {undefined, [{ref, {xsd,Tag}, Ref,_} | Constraints0]}
               when Tag=:="simpleType";
                    Tag=:="complexType" ->
+                io:format(user, "DB| convert_element case 2: ~p\n", [{}]),
                 {Ref, ElemName, Constraints0};
-            {undefined,RefName,Constraints0} when RefName /= undefined ->
-                check_element_existence(RefName, State),
-                {{xsd,"element"},Attrs2,Children2} =
-                    dict:fetch(RefName, State#refcheck_state.elements),
-                Type0 = case {attribute("type",Attrs2,undefined), Children2} of
-                            {undefined, [{ref,_,Type00,_}]} -> Type00;
-                            {Type00,_} -> Type00
-                        end,
-                Name0 = attribute("name",Attrs2),
-                {Type0, Name0, Constraints0};
             _ when TypeName /= undefined ->
+                io:format(user, "DB| convert_element case 4: ~p\n", [{}]),
                 {TypeName, ElemName, Children}
         end,
     %% TODO: Handle constraints.
@@ -458,7 +460,7 @@ process_sequence_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
 process_sequence_children(Node={{xsd, "all"},_,_}) ->
     process_all(Node);
-process_sequence_children(Node={ref, {xsd, "element"},Ref,Attrs}) ->
+process_sequence_children({ref, {xsd, "element"},Ref,Attrs}) ->
     MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
     MaxOccurs = attribute("maxOccurs", Attrs,
                           fun ("unbounded")->unbounded;
