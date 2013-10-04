@@ -13,7 +13,7 @@
     </complexType>
   </element>
 
-  <xsd:complexType name="TestRoot">
-    <xsd:sequence> <xsd:element ref="secure"/> </xsd:sequence>
-  </xsd:complexType>
+  <complexType name="TestRoot">
+    <sequence> <element ref="po:secure"/> </sequence>
+  </complexType>
 </schema>

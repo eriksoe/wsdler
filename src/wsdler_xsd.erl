@@ -388,18 +388,21 @@ convert_types(Types,_State) ->
 
 check_element_existence(ElementID, #refcheck_state{elements=Dict}) ->
     dict:is_key(ElementID, Dict)
-        orelse error({unresolved_element, ElementID}),
+        orelse error({unresolved_element, ElementID,
+                     dict:fetch_keys(Dict)}),
     ElementID.
 
 check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
     dict:is_key(GroupID, Dict)
-        orelse error({unresolved_group, GroupID}),
+        orelse error({unresolved_group, GroupID,
+                     dict:fetch_keys(Dict)}),
     GroupID.
 
 check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
     dict:is_key(TypeID, Dict)
-        orelse error({unresolved_type_reference, TypeID, dict:fetch_keys(Dict)}),
+        orelse error({unresolved_type_reference, TypeID,
+                      dict:fetch_keys(Dict)}),
     TypeID.
 
 %%%=========================================================================
