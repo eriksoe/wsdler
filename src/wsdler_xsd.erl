@@ -333,8 +333,8 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
                    Tag=:="complexType" ->
                 {Ref, ElemName, Constraints0};
             {undefined,RefName,Constraints0} when RefName /= undefined ->
+                check_element_existence(RefName, State),
                 {{xsd,"element"},Attrs2,Children2} =
-                    check_element_existence(RefName, State),
                     dict:fetch(RefName, State#refcheck_state.elements),
                 Type0 = case {attribute("type",Attrs2,undefined), Children2} of
                             {undefined, [{ref,_,Type00,_}]} -> Type00;
@@ -386,11 +386,13 @@ convert_types(Types,_State) ->
 
 check_element_existence(ElementID, #refcheck_state{elements=Dict}) ->
     dict:is_key(ElementID, Dict)
-        orelse error({unresolved_element, ElementID}).
+        orelse error({unresolved_element, ElementID}),
+    ElementID.
 
 check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
     dict:is_key(GroupID, Dict)
-        orelse error({unresolved_group, GroupID}).
+        orelse error({unresolved_group, GroupID}),
+    GroupID.
 
 check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
