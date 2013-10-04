@@ -12,8 +12,8 @@ generator(TypeID, Schema) ->
         #complexType{} ->
             %% TODO: Handling of complex types.
             {'TODO', complexType};
-        #simpleType{} ->
-            generator(Type)
+        #simpleType{type=TypeDef} ->
+            generator(TypeDef)
     end.
 
 %% generator(#element{name=ElmName, type=Type}, WSDL) ->

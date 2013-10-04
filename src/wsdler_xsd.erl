@@ -521,7 +521,7 @@ process_choice_children(Node={{xsd, "element"},_,_}) ->
 %%%   simpleDerivation ::= (restriction | list | union)
 process_simpleType({{xsd, "simpleType"}, _Attr, Children}) ->
     [Child] = strip_annotations(Children),
-    process_simpleType_child(Child).
+    #simpleType{type=process_simpleType_child(Child)}.
 process_simpleType_child({{xsd,"restriction"}, Attrs, Children}) ->
     process_restriction_children(attribute("base", Attrs), Children);
 process_simpleType_child({{xsd,"list"}, Attrs, Children}) ->
