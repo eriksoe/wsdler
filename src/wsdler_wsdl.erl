@@ -11,15 +11,16 @@
 main(Filename) ->
     WSDL = parse_file(Filename),
     io:format("WSDL = ~p\n", [WSDL]),
-    TypeList = wsdler_xsd:schema_to_type_list(WSDL#wsdl.typedict),
+    Schema = WSDL#wsdl.typedict,
+    TypeList = wsdler_xsd:schema_to_type_list(Schema),
     TypeNames = [TN || {TN,_} <- TypeList],
     io:format("Types = ~p\n", [TypeNames]),
-    lists:foreach(fun({TN,TD}) ->
-                          Gen = wsdler_generators:generator(TD, WSDL),
+    lists:foreach(fun(TN) ->
+                          Gen = wsdler_generators:generator(TN, Schema),
                           io:format("Type sample for ~p:\n  ~p\n",
                                     [TN, triq_dom:sample(Gen)])
                   end,
-                  TypeList),
+                  TypeNames),
     WSDL.
 
 parse_file(Filename) ->

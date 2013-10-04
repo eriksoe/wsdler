@@ -1,20 +1,31 @@
 -module(wsdler_generators).
 
--compile(export_all).
+-export([generator/2]).
 
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
-generator(#element{name=ElmName, type=Type}, WSDL) ->
-    make_element(ElmName, [], generator(Type, WSDL));
-generator(#simpleType{type={named,TypeName}},
-          #wsdl{typedict=TypeDict}=WSDL) ->
-    TypeDef = dict:fetch(TypeName, TypeDict),
-    generator(TypeDef,WSDL);
-generator(#simpleType{type=Type},WSDL) ->
-    generator(Type,WSDL);
-generator(Type,_) ->
-    generator(Type).
+generator(TypeID, Schema) ->
+    Type = wsdler_xsd:lookup_type(TypeID, Schema),
+    io:format(user, "DB| generator: type=~p\n", [Type]),
+    case Type of
+        #complexType{} ->
+            %% TODO: Handling of complex types.
+            {'TODO', complexType};
+        #simpleType{} ->
+            generator(Type)
+    end.
+
+%% generator(#element{name=ElmName, type=Type}, WSDL) ->
+%%     make_element(ElmName, [], generator(Type, WSDL));
+%% generator(#simpleType{type={named,TypeName}},
+%%           #wsdl{typedict=TypeDict}=WSDL) ->
+%%     TypeDef = dict:fetch(TypeName, TypeDict),
+%%     generator(TypeDef,WSDL);
+%% generator(#simpleType{type=Type},WSDL) ->
+%%     generator(Type,WSDL);
+%% generator(Type,_) ->
+%%     generator(Type).
 
 make_element({NS,Name}, Attrs, Content) ->
     {Name, [{'xmlns',NS} | Attrs], Content}.

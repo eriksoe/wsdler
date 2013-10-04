@@ -5,6 +5,7 @@
 
 -export([parse_file/1, parse_string/1, parse_schema_node/1]).
 -export([empty_schema/0, schema_to_type_list/1, merge_schemas/2]).
+-export([lookup_type/2, lookup_element/2]).
 
 -include("wsdler.hrl").
 -import(wsdler_xml, [attribute/2, attribute/3, list_attribute/2, attribute/4]).
@@ -36,6 +37,12 @@ merge_schemas(TypeDict1, TypeDict2) ->
 
 schema_to_type_list(#schema{types=Types}) ->
     dict:to_list(Types).
+
+lookup_type(TypeID, #schema{types=Types}) ->
+    dict:fetch(TypeID, Types).
+
+lookup_element(ElementID, #schema{elements=Elements}) ->
+    dict:fetch(ElementID, Elements).
 
 schema_to_readable(#schema{types=Types, elements=Elements}) ->
     {schema, [{types, dict:to_list(Types)},

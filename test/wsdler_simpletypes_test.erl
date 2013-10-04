@@ -28,9 +28,8 @@ simple_type_generator(BaseType) ->
     simple_type_generator(BaseType, "").
 simple_type_generator(BaseType, RestrictionBody) ->
     SchemaSrc = schema(BaseType, RestrictionBody),
-    {ok,TypeDict} = wsdler_xsd:parse_string(SchemaSrc),
-    Type = dict:fetch(qtypename("T"), TypeDict),
-    wsdler_generators:generator(Type).
+    {ok,Schema} = wsdler_xsd:parse_string(SchemaSrc),
+    wsdler_generators:generator(qtypename("T"), Schema).
 
 schema(BaseType, Body) ->
     "<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""
