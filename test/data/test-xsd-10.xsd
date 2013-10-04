@@ -1,4 +1,3 @@
-
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <xsd:element name="internationalPrice">
     <xsd:complexType>
@@ -6,4 +5,8 @@
       <xsd:attribute name="value"    type="xsd:decimal"/>
     </xsd:complexType>
   </xsd:element>
+
+  <xsd:complexType name="TestRoot">
+    <xsd:sequence> <xsd:element ref="internationalPrice"/> </xsd:sequence>
+  </xsd:complexType>
 </xsd:schema>

@@ -1,5 +1,3 @@
-
-
 <schema xmlns="http://www.w3.org/2001/XMLSchema"
         xmlns:po="http://www.example.com/PO1"
         targetNamespace="http://www.example.com/PO1"
@@ -14,4 +12,8 @@
       <attribute name="publicKey" type="base64Binary" form="qualified"/>
     </complexType>
   </element>
+
+  <xsd:complexType name="TestRoot">
+    <xsd:sequence> <xsd:element ref="secure"/> </xsd:sequence>
+  </xsd:complexType>
 </schema>

@@ -16,9 +16,9 @@ xsdfiles_test_() ->
 one_xsd_file(Filename) ->
     {ok, Schema} = wsdler_xsd:parse_file(Filename),
     TypeNames = [TN || {{_,TN}, _} <- wsdler_xsd:schema_to_type_list(Schema)],
+    ?assertMatch([_|_], TypeNames),
     %% TODO: Generate samples for each type...
     TypeNames.
-
 
 
 blacklist() ->
@@ -40,6 +40,7 @@ blacklist() ->
       "test-xsd-27.xsd", % Missing UKPostcode
       "test-xsd-28.xsd", % Missing UKPostcode
       "test-xsd-29.xsd", % Missing Address, PurchaseOrderType
+      "test-xsd-30.xsd", % Using redefine
       "test-xsd-31.xsd", % Missing string
       "test-xsd-35.xsd", % Missing Postcode
       "test-xsd-36.xsd", % Missing Postcode
