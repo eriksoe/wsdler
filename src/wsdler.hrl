@@ -20,7 +20,7 @@
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 -record(element, {name :: _,
 		  type :: typedef()}).
--record(element_instantiation, {element :: #element{},
+-record(element_instantiation, {element_ref :: _,
                                 minOccurs :: integer(),
                                 maxOccurs :: integer() | unbounded}).
 
@@ -43,7 +43,7 @@
 -record(choice,   {content :: [element_ish()]}).
 -record(sequence, {content :: [element_ish()]}).
 -record(all, {content :: [element_ish()]}).
--type(element_ish() :: element_ish() | #group{} | #choice{} | #sequence{} | #all{}).
+-type(element_ish() :: #element_instantiation{} | #group{} | #choice{} | #sequence{} | #all{}).
 
 -record(complexType, {
           content :: #simpleContentExtension{} | #complexContentRestriction{} | element_ish(), % ?

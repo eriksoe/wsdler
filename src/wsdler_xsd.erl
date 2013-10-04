@@ -7,7 +7,7 @@
 -export([empty_schema/0, schema_to_type_list/1, merge_schemas/2]).
 
 -include("wsdler.hrl").
--import(wsdler_xml, [attribute/2, attribute/3, list_attribute/2]).
+-import(wsdler_xml, [attribute/2, attribute/3, list_attribute/2, attribute/4]).
 
 -record(schema, {
           elements :: dict(), % of #element{}
@@ -458,8 +458,16 @@ process_sequence_children(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
 process_sequence_children(Node={{xsd, "all"},_,_}) ->
     process_all(Node);
-process_sequence_children(Node={{xsd, "element"},_,_}) ->
-    process_element(Node);
+process_sequence_children(Node={ref, {xsd, "element"},Ref,Attrs}) ->
+    MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
+    MaxOccurs = attribute("maxOccurs", Attrs,
+                          fun ("unbounded")->unbounded;
+                              (V) -> list_to_integer(V)
+                          end,
+                          unbounded),
+    #element_instantiation{element_ref=Ref,
+                           minOccurs=MinOccurs,
+                           maxOccurs=MaxOccurs};
 process_sequence_children(Node={{xsd, "choice"},_,_}) ->
     process_choice(Node).
 
