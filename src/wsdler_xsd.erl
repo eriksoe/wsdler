@@ -497,10 +497,15 @@ process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
     {anyAttribute, todo_anyAttribute};
 process_attribute({{xsd, "attribute"},Attributes, Children}) ->
     Name = attribute("name", Attributes),
-    Type = attribute("type", Attributes, undefined),
+    TypeName = attribute("type", Attributes, undefined),
     Use  = attribute("use", Attributes, undefined),
-    #attribute{name=Name, type=Type, use=Use,
-	       simpleType=case Children of [Child] -> process_simpleType(Child); [] -> undefined end}.
+    Type = case {TypeName,Children} of
+               {_, []} when TypeName /= undefined ->
+                   TypeName;
+               {undefined, [{ref,{xsd,"simpleType"},TypeRef,_Attrs}]} ->
+                   TypeRef
+           end,
+    #attribute{name=Name, type=Type, use=Use}.
 
 
 process_choice({{xsd,"choice"}, _Attr, Children}) ->

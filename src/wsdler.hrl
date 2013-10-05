@@ -28,9 +28,8 @@
 %% -type(element() :: #element{} | #elementRef{}).
 -type(element() :: #element_instantiation{}).
 -record(attribute, {name :: ncname(),
-		    type :: qname(),
-		    use=optional :: optional | prohibited | required,
-		    simpleType :: #simpleType{}}).
+		    type :: qname() | reference(),
+		    use=optional :: optional | prohibited | required}).
 
 -type(ncname() :: string()). %% "non-colonized" name
 -type(anyURI() :: string()).
