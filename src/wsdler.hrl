@@ -34,18 +34,24 @@
 -type(ncname() :: string()). %% "non-colonized" name
 -type(anyURI() :: string()).
 -type(qname() :: {anyURI(), ncname()} | ncname()).
--record(complexContentRestriction, {base :: qname(),
-				    attributes :: [#attribute{}]}).
 -record(simpleContentExtension, {base :: qname(),
-				 attributes :: [#attribute{}]}).
+				 attributes :: [#attribute{}],
+                                 children :: element_ish()}).
+-record(complexContentRestriction, {base :: qname(),
+				    attributes :: [#attribute{}],
+                                    children :: element_ish()}).
+-record(complexContentExtension, {base :: qname(),
+				 attributes :: [#attribute{}],
+                                 children :: element_ish()}).
 -record(group, {ref :: qname()}).
 -record(choice,   {content :: [element_ish()]}).
 -record(sequence, {content :: [element_ish()]}).
 -record(all, {content :: [element_ish()]}).
--type(element_ish() :: #element_instantiation{} | #group{} | #choice{} | #sequence{} | #all{}).
+-record(any, {}).
+-type(element_ish() :: #element_instantiation{} | #group{} | #choice{} | #sequence{} | #all{} | #any{}).
 
 -record(complexType, {
-          content :: #simpleContentExtension{} | #complexContentRestriction{} | element_ish(), % ?
+          content :: #simpleContentExtension{} | #complexContentExtension{} | #complexContentRestriction{} | element_ish(), % ?
           attributes :: #attribute{}}).
 
 -type(typedef() :: #simpleType{} | #complexType{}).

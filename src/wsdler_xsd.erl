@@ -466,10 +466,6 @@ process_all({{xsd, "all"}, _, Children}) ->
 
 process_sequence({{xsd, "sequence"}, _Attr, Children}) ->
     #sequence{content=[process_sequence_children(Child) || Child <- Children]}.
-process_sequence_children(Node={{xsd, "sequence"},_,_}) ->
-    process_sequence(Node);
-process_sequence_children(Node={{xsd, "all"},_,_}) ->
-    process_all(Node);
 process_sequence_children({ref, {xsd, "element"},Ref,Attrs}) ->
     MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
     MaxOccurs = attribute("maxOccurs", Attrs,
@@ -480,18 +476,48 @@ process_sequence_children({ref, {xsd, "element"},Ref,Attrs}) ->
     #element_instantiation{element_ref=Ref,
                            minOccurs=MinOccurs,
                            maxOccurs=MaxOccurs};
-process_sequence_children(Node={{xsd, "choice"},_,_}) ->
-    process_choice(Node).
+process_sequence_children(Node) ->
+    process_groupish(Node).
+
 
 process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
 			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
 
-process_complexContent_child({{xsd,"restriction"},Attributes ,Children}) ->
+%%%%%% <complexContent> children: %%%%%%%%%%%%%%%%%%%%
+%%   (annotation?, (restriction | extension))
+%%
+%%%%%% <restriction> children: %%%%%%%%%%%%%%%%%%%%
+%%   (annotation?, (group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?))
+%%
+%%%%%% <extension> children: %%%%%%%%%%%%%%%%%%%%
+%%   (annotation?, ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))
+%% </extension>
+process_complexContent_child({{xsd,Tag}, Attributes, Children})
+  when Tag =:= "restriction";
+       Tag =:= "extension" ->
     BaseTypeQname = attribute("base", Attributes),
-    #complexContentRestriction{base = BaseTypeQname,
-			       attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+    case Children/=[] andalso is_groupish(hd(Children)) of
+        true ->
+            ElemContents = process_groupish(hd(Children)),
+            AttrChildren = tl(Children);
+        false ->
+            ElemContents = [],
+            AttrChildren = Children
+    end,
+    AttrContents = lists:map(fun(Child) -> process_attribute(Child) end, AttrChildren),
+    case Tag of
+        "restriction" ->
+            #complexContentRestriction{base = BaseTypeQname,
+                                       attributes = AttrContents,
+                                       children = ElemContents};
+        "extension" ->
+            #complexContentExtension{base = BaseTypeQname,
+                                     attributes = AttrContents,
+                                     children = ElemContents}
+
+    end.
 
 process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
     {anyAttribute, todo_anyAttribute};
@@ -518,6 +544,23 @@ process_choice_children({{xsd, "group"}, Attrs,[]}) ->
     #group{ref=attribute("ref",Attrs)};
 process_choice_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node).
+
+is_groupish({{xsd, Tag},_,_}) ->
+    Tag=:="choice" orelse
+    Tag=:="group" orelse
+    Tag=:="sequence" orelse
+    Tag=:="all" orelse
+    Tag=:="any".
+process_groupish(Node={{xsd, "sequence"},_,_}) ->
+    process_sequence(Node);
+process_groupish(Node={{xsd, "choice"},_,_}) ->
+    process_choice(Node);
+process_groupish({{xsd, "group"}, Attrs,[]}) ->
+    #group{ref=attribute("ref",Attrs)};
+process_groupish(Node={{xsd, "element"},_,_}) ->
+    process_element(Node);
+process_groupish({{xsd, "any"},_,_}) ->
+    #any{}.
 
 
 %%%%%% <simpleType> children: %%%%%%%%%%%%%%%%%%%%
