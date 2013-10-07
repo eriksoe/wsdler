@@ -12,6 +12,7 @@
 
 -record(schema, {
           elements :: dict(), % of #element{}
+          attributes :: dict(), % of ??
           groups :: dict(),   % of ??
           attr_groups :: dict(), % of ??
           types :: dict(),    % of typedef()
@@ -57,6 +58,7 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
 %%% State from phase 1:
 -record(collect_state, {
           elements :: dict(), % of XML subtree
+          attributes :: dict(), % of ??
           groups :: dict(),
           attr_groups :: dict(),
           types :: dict(),
@@ -67,6 +69,7 @@ schema_to_readable(#schema{types=Types, elements=Elements}) ->
 %%% State from phase 3:
 -record(refcheck_state, {
           elements :: dict(), % of XML subtree
+          attributes :: dict(), % of ??
           groups :: dict(),
           attr_groups :: dict(),
           types :: dict(),
@@ -126,6 +129,7 @@ debug4(Schema) ->
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
     TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, undefined),
     InitState = #collect_state{elements    = dict:new(),
+                               attributes  = dict:new(),
                                groups      = dict:new(),
                                attr_groups = dict:new(),
                                types       = dict:new(),
@@ -180,6 +184,8 @@ collect_defs_action(schema,"element") ->
     [{recurse,element}, {add_to_dict_field, #collect_state.elements, "name"}];
 collect_defs_action(_,"element") ->
     [{recurse,element}, {add_to_dict_field, #collect_state.elements, "<none>"}];
+collect_defs_action(_,"attribute") ->
+    [{recurse,attribute}, {add_to_dict_field, #collect_state.attributes, "id"}];
 collect_defs_action(_,"group") ->
     [{recurse,group},   {add_to_dict_field, #collect_state.groups, "id"}];
 collect_defs_action(_,"attributeGroup") ->
@@ -273,7 +279,7 @@ base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
     case Children of
         [] ->
             no_base;
-        [{{xsd,"attribute"}, _, _} | _] ->
+        [{ref, {xsd,"attribute"}, _, _} | _] ->
             no_base;
         [{{xsd,Tag}, _, _} | _] when Tag=:="group";
                                      Tag=:="all";
@@ -298,6 +304,7 @@ base_type_of(Other) -> error({incomplete, base_type_of, Other}).
 
 convert_to_internal_form(#refcheck_state{
                             elements = Elements,
+                            attributes = Attributes,
                             groups = Groups,
                             attr_groups = AttrGroups,
                             types = Types,
@@ -306,6 +313,7 @@ convert_to_internal_form(#refcheck_state{
     NewElements = convert_elements(Elements, State),
     NewTypes = convert_types(Types, State),
     #schema{elements=NewElements,
+            attributes=Attributes, % TODO?
             groups=Groups,
             attr_groups=AttrGroups,
             types=NewTypes,
@@ -447,19 +455,22 @@ process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
 %%%   attrDecls ::= ( (attribute | attributeGroup)*, anyAttribute? )
 %%%
 process_complexType_children([]) ->
-    {undefined, todo_process_complex_children} ;
-process_complexType_children(Attributes=[{{xsd,"attribute"},_,_}|_]) ->
-    {undefined, [process_attribute(Attr) || Attr <- Attributes]} ;
+    {undefined, []} ;
+process_complexType_children(Attributes=[{ref,{xsd,"attribute"},_,_}|_]) ->
+    {undefined, process_attributes(Attributes)} ;
 process_complexType_children([Node={{xsd,"all"},_,_} | Attributes]) ->
-    {process_all(Node), [process_attribute(Attr) || Attr <- Attributes]};
+    {process_all(Node), process_attributes(Attributes)};
 process_complexType_children([Node={{xsd,"sequence"},_,_} | Attributes]) ->
-    {process_sequence(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
+    {process_sequence(Node), process_attributes(Attributes)} ;
 process_complexType_children([Node={{xsd,"choice"},_,_} | Attributes]) ->
-    {process_choice(Node), [process_attribute(Attr) || Attr <- Attributes]} ;
+    {process_choice(Node), process_attributes(Attributes)} ;
 process_complexType_children([{{xsd,"simpleContent"},_,[Child]}]) -> %% TODO, only one child for now
     {process_simpleContent_child(Child), []};
 process_complexType_children([{{xsd,"complexContent"},_,[Child]}]) -> %% TODO, only one child for now
     {process_complexContent_child(Child), []}.
+
+process_attributes(Attributes) ->
+    [process_attribute(Attr) || Attr <- Attributes].
 
 process_all({{xsd, "all"}, _, Children}) ->
     #all{content=[process_element(Child) || Child <- Children]}.
@@ -521,8 +532,16 @@ process_complexContent_child({{xsd,Tag}, Attributes, Children})
 
 process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
     {anyAttribute, todo_anyAttribute};
-process_attribute({{xsd, "attribute"},Attributes, Children}) ->
-    Name = attribute("name", Attributes),
+process_attribute({ref, {xsd, "attribute"}, Ref, _Attributes}) ->
+    {todo_attribute, Ref}.
+
+convert_attribute({{xsd, "attribute"}, Attributes, Children}) ->
+    %% 3 If the item's parent is not <schema>, then all of the following must be true:
+    %% 3.1 One of ref or name must be present, but not both.
+    %% 3.2 If ref is present, then all of <simpleType>, form and type must be absent.
+    %% 4 type and <simpleType> must not both be present.
+    Ref = attribute("ref", Attributes, undefined),
+    Name = attribute("name", Attributes, undefined),
     TypeName = attribute("type", Attributes, undefined),
     Use  = attribute("use", Attributes, undefined),
     Type = case {TypeName,Children} of
@@ -545,6 +564,7 @@ process_choice_children({{xsd, "group"}, Attrs,[]}) ->
 process_choice_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node).
 
+is_groupish({ref, {xsd, "attribute"},_,_}) -> false;
 is_groupish({{xsd, Tag},_,_}) ->
     Tag=:="choice" orelse
     Tag=:="group" orelse
