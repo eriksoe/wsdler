@@ -1,4 +1,3 @@
-
 <schema targetNamespace="http://www.example.com/IPO"
         xmlns="http://www.w3.org/2001/XMLSchema"
         xmlns:ipo="http://www.example.com/IPO">
@@ -12,4 +11,8 @@
       <anyAttribute namespace="http://www.w3.org/1999/xhtml"/>
     </complexType>
   </element>
+
+  <complexType name="TestRoot">
+    <sequence> <element ref="ipo:htmlExample"/> </sequence>
+  </complexType>
 </schema>
