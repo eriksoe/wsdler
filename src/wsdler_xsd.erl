@@ -443,8 +443,8 @@ process_schema_children(Node={{xsd,"complexType"}, Attrs, _}, Acc, TgtNS) ->
     [{{TgtNS,TypeName},process_complexType(Node)} | Acc].
 
 process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
-    {Content, Attributes} = process_complexType_children(strip_annotations(Children)),
-    #complexType{content = Content, attributes=Attributes}.
+    ComplexTypeDef = process_complexType_children(strip_annotations(Children)),
+    #complexType{content = ComplexTypeDef}.
 
 %%%%%% <complexType> children: %%%%%%%%%%%%%%%%%%%%
 %%% ( annotation?, "complexTypeModel")
@@ -454,20 +454,23 @@ process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
 %%%   typeDefParticle ::= ( group | all | choice | sequence )
 %%%   attrDecls ::= ( (attribute | attributeGroup)*, anyAttribute? )
 %%%
-process_complexType_children([]) ->
-    {undefined, []} ;
-process_complexType_children(Attributes=[{ref,{xsd,"attribute"},_,_}|_]) ->
-    {undefined, process_attributes(Attributes)} ;
-process_complexType_children([Node={{xsd,"all"},_,_} | Attributes]) ->
-    {process_all(Node), process_attributes(Attributes)};
-process_complexType_children([Node={{xsd,"sequence"},_,_} | Attributes]) ->
-    {process_sequence(Node), process_attributes(Attributes)} ;
-process_complexType_children([Node={{xsd,"choice"},_,_} | Attributes]) ->
-    {process_choice(Node), process_attributes(Attributes)} ;
-process_complexType_children([{{xsd,"simpleContent"},_,[Child]}]) -> %% TODO, only one child for now
-    {process_simpleContent_child(Child), []};
-process_complexType_children([{{xsd,"complexContent"},_,[Child]}]) -> %% TODO, only one child for now
-    {process_complexContent_child(Child), []}.
+-spec process_complexType_children/1 :: ([erlsom_dom()]) ->complexTypeDef().
+process_complexType_children([{{xsd,"simpleContent"},_,Children}]) ->
+    process_simpleContent_children(Children);
+process_complexType_children([{{xsd,"complexContent"},_,Children}]) ->
+    process_complexContent_children(Children);
+process_complexType_children(Children) ->
+    process_complexContentTypeModel(Children).
+
+%%% Quoth the spec, about "complexTypeModel":
+%%%   This branch is short for
+%%%   <complexContent>
+%%%     <restriction base="xs:anyType">...</restriction>
+%%%   </complexContent>
+process_complexContentTypeModel(Children) ->
+    process_complexContent_children([{{xsd,"restriction"},
+                                      [{{[],"base"}, {xsd,"anyType"}}],
+                                      Children}]).
 
 process_attributes(Attributes) ->
     [process_attribute(Attr) || Attr <- Attributes].
@@ -491,10 +494,19 @@ process_sequence_children(Node) ->
     process_groupish(Node).
 
 
-process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
+%%%%%% <simpleContent> children:
+%%% (annotation?, (restriction | extension))
+process_simpleContent_children([{{xsd,"extension"},Attributes ,Children}]) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
-			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)};
+process_simpleContent_children([{{xsd,"restriction"},Attributes ,Children}]) ->
+    BaseTypeQname = attribute("base", Attributes),
+    %% TODO: Handle type and facets!
+    #simpleContentRestriction{base = BaseTypeQname,
+                              type = 'TODO',
+                              facets = 'TODO',
+                              attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
 
 %%%%%% <complexContent> children: %%%%%%%%%%%%%%%%%%%%
 %%   (annotation?, (restriction | extension))
@@ -505,7 +517,7 @@ process_simpleContent_child({{xsd,"extension"},Attributes ,Children}) ->
 %%%%%% <extension> children: %%%%%%%%%%%%%%%%%%%%
 %%   (annotation?, ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))
 %% </extension>
-process_complexContent_child({{xsd,Tag}, Attributes, Children})
+process_complexContent_children([{{xsd,Tag}, Attributes, Children}])
   when Tag =:= "restriction";
        Tag =:= "extension" ->
     BaseTypeQname = attribute("base", Attributes),
@@ -564,6 +576,8 @@ process_choice_children({{xsd, "group"}, Attrs,[]}) ->
 process_choice_children(Node={{xsd, "element"},_,_}) ->
     process_element(Node).
 
+%%%========== Element groups ("groupish")
+
 is_groupish({ref, {xsd, "attribute"},_,_}) -> false;
 is_groupish({{xsd, Tag},_,_}) ->
     Tag=:="choice" orelse
@@ -582,6 +596,12 @@ process_groupish(Node={{xsd, "element"},_,_}) ->
 process_groupish({{xsd, "any"},_,_}) ->
     #any{}.
 
+%%%========== Attribute-ish
+
+is_attributeish({{xsd, Tag},_,_}) ->
+    Tag=:="attribute" orelse
+    Tag=:="attributeGroup" orelse
+    Tag=:="anyAttribute".
 
 %%%%%% <simpleType> children: %%%%%%%%%%%%%%%%%%%%
 %%% (annotation?, "simpleDerivation")

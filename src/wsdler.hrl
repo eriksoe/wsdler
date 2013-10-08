@@ -36,12 +36,12 @@
                                 maxOccurs :: integer() | unbounded}).
 -record(attribute_instantiation, {attr_ref :: _}).
 
-%% -record(elementRef, {ref :: qname()}).
-%% -type(element() :: #element{} | #elementRef{}).
 -type(element() :: #element_instantiation{}).
 -record(attribute, {name :: ncname(),
-		    type :: qname() | reference(),
+		    type :: qname(),
 		    use=optional :: optional | prohibited | required}).
+-record(attribute_ref, {ref :: qname() | reference(),
+                        use=optional :: optional | prohibited | required}).
 
 %%%========== Element group related: ========================================
 
@@ -52,21 +52,32 @@
 -record(any, {}).
 -type(element_ish() :: #element_instantiation{} | #group{} | #choice{} | #sequence{} | #all{} | #any{}).
 
+%%%========== Attribute group related: ========================================
+
+-record(attributeGroup_ref, {ref :: qname() | reference()}).
+-type(attribute_ish() :: #attribute_ref{} | #attributeGroup_ref{} | any_attribute).
+
 %%%========== Complex-type related: ========================================
 
+-record(simpleContentRestriction, {base :: qname(),
+                                   type :: qname(),
+                                   facets :: [#restriction{}],
+                                   attributes :: [attribute_ish()]}).
 -record(simpleContentExtension, {base :: qname(),
-				 attributes :: [#attribute{}],
-                                 children :: element_ish()}).
+				 attributes :: [attribute_ish()]}).
 -record(complexContentRestriction, {base :: qname(),
-				    attributes :: [#attribute{}],
-                                    children :: element_ish()}).
+                                    children :: element_ish(),
+                                    attributes :: [attribute_ish()]}).
 -record(complexContentExtension, {base :: qname(),
-				 attributes :: [#attribute{}],
-                                 children :: element_ish()}).
+                                  children :: element_ish(),
+                                  attributes :: [attribute_ish()]}).
 
--record(complexType, {
-          content :: #simpleContentExtension{} | #complexContentExtension{} | #complexContentRestriction{} | element_ish(), % ?
-          attributes :: #attribute{}}).
+-record(complexType, { content :: complexTypeDef()}).
+
+-type( complexTypeDef() :: #simpleContentRestriction{}
+                         | #simpleContentExtension{}
+                         | #complexContentExtension{}
+                         | #complexContentRestriction{}).
 
 %%%========== XSD related: ========================================
 
