@@ -34,14 +34,14 @@
 -record(element_instantiation, {element_ref :: _,
                                 minOccurs :: integer(),
                                 maxOccurs :: integer() | unbounded}).
--record(attribute_instantiation, {attr_ref :: _}).
 
 -type(element() :: #element_instantiation{}).
 -record(attribute, {name :: ncname(),
 		    type :: qname(),
 		    use=optional :: optional | prohibited | required}).
--record(attribute_ref, {ref :: qname() | reference(),
-                        use=optional :: optional | prohibited | required}).
+-record(attribute_instantiation, {
+          ref :: qname() | reference(),
+          use=optional :: optional | prohibited | required | undefined}).
 
 %%%========== Element group related: ========================================
 
@@ -55,7 +55,7 @@
 %%%========== Attribute group related: ========================================
 
 -record(attributeGroup_ref, {ref :: qname() | reference()}).
--type(attribute_ish() :: #attribute_ref{} | #attributeGroup_ref{} | any_attribute).
+-type(attribute_ish() :: #attribute_instantiation{} | #attributeGroup_ref{} | any_attribute).
 
 %%%========== Complex-type related: ========================================
 

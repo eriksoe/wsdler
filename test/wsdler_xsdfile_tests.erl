@@ -44,6 +44,7 @@ blacklist() ->
       "test-xsd-31.xsd", % Missing string
       "test-xsd-35.xsd", % Missing Postcode
       "test-xsd-36.xsd", % Missing Postcode
+      "test-xsd-38.xsd", % Importing type "SKU"
       "test-xsd-39.xsd", % Missing Items
       "test-xsd-42.xsd" % Missing USAddress
      ].

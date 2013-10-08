@@ -237,6 +237,7 @@ build_type_order(#collect_state{}=State) ->
     %% TODO: Check other references.
     #refcheck_state{
                elements    = State#collect_state.elements,
+               attributes  = State#collect_state.attributes,
                groups      = State#collect_state.groups,
                attr_groups = State#collect_state.attr_groups,
                types       = State#collect_state.types,
@@ -311,9 +312,10 @@ convert_to_internal_form(#refcheck_state{
                             type_order = TypeOrder
                            }=State) ->
     NewElements = convert_elements(Elements, State),
+    NewAttributes = convert_attributes(Attributes, State),
     NewTypes = convert_types(Types, State),
     #schema{elements=NewElements,
-            attributes=Attributes, % TODO?
+            attributes=NewAttributes,
             groups=Groups,
             attr_groups=AttrGroups,
             types=NewTypes,
@@ -435,9 +437,6 @@ process_complexContentTypeModel(Children) ->
                                       [{{[],"base"}, {xsd,"anyType"}}],
                                       Children}]).
 
-process_attributes(Attributes) ->
-    [process_attribute(Attr) || Attr <- Attributes].
-
 process_all({{xsd, "all"}, _, Children}) ->
     #all{content=[process_element(Child) || Child <- Children]}.
 
@@ -495,12 +494,22 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}])
 
     end.
 
+-spec process_attribute/1 :: (erlsom_dom()) -> attribute_ish().
+process_attribute({ref, {xsd, "attribute"}, Ref, Attributes}) ->
+    Use  = list_to_atom(attribute("use", Attributes, "undefined")),
+    #attribute_instantiation{ref=Ref, use=Use};
+process_attribute({ref, {xsd, "attributeGroup"}, Ref, _Attributes}) ->
+    #attributeGroup_ref{ref=Ref};
 process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
-    {anyAttribute, todo_anyAttribute};
-process_attribute({ref, {xsd, "attribute"}, Ref, _Attributes}) ->
-    {todo_attribute, Ref}.
+    any_attribute.
 
-convert_attribute({{xsd, "attribute"}, Attributes, Children}) ->
+%% TODO: Attribute groups.
+
+convert_attributes(Attributes, State) ->
+    io:format(user, "DB| convert_attributes: ~p\n", [Attributes]),
+    dict:map(fun (_K,V)->convert_attribute(V,State) end, Attributes).
+
+convert_attribute({{xsd, "attribute"}, Attributes, Children}, State) ->
     %% 3 If the item's parent is not <schema>, then all of the following must be true:
     %% 3.1 One of ref or name must be present, but not both.
     %% 3.2 If ref is present, then all of <simpleType>, form and type must be absent.
@@ -509,13 +518,15 @@ convert_attribute({{xsd, "attribute"}, Attributes, Children}) ->
     Name = attribute("name", Attributes, undefined),
     TypeName = attribute("type", Attributes, undefined),
     Use  = attribute("use", Attributes, undefined),
-    Type = case {TypeName,Children} of
-               {_, []} when TypeName /= undefined ->
+    Type = case {Ref,TypeName,Children} of
+               {_, undefined, []} when Ref /= undefined ->
+                   {'TODO', ref, Ref};
+               {undefined, _, []} when TypeName /= undefined ->
                    TypeName;
-               {undefined, [{ref,{xsd,"simpleType"},TypeRef,_Attrs}]} ->
+               {undefined, undefined, [{ref,{xsd,"simpleType"},TypeRef,_Attrs}]} ->
                    TypeRef
            end,
-    #attribute{name=Name, type=Type, use=Use}.
+    #attribute{name=Name, type=check_type_existence(Type,State), use=Use}.
 
 %%%========== Element and element groups ("groupish")
 
