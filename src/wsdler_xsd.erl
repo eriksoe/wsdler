@@ -366,30 +366,6 @@ convert_element2(Attrs, Children, State) ->
     #element{name=Name, type=check_type_existence(Type,State)}.
 
 
-process_element({{xsd,"element"}, Attrs, Children}) ->
-    {'TODO', process_element, Attrs, Children}.
-%% process_element({{xsd,"element"}, Attrs, []}) ->
-%%      case attribute("ref", Attrs, none) of
-%% 	none ->
-%% 	    ElemName = attribute("name",Attrs),
-%% 	    #element{name=ElemName}; % TODO: type
-%% 	Qname ->
-%% 	    #elementRef{ref=Qname} % TODO: check_element_existence(Qname)}
-%%     end;
-%% process_element({{xsd,"element"}, Attrs, Children}) ->
-%%     ElemName = attribute("name",Attrs),
-%%     case strip_annotations(Children) of
-%% 	[Child] ->
-%% 	    #element{name=ElemName, type=process_element_child(Child)};
-%% 	[] ->
-%% 	    #element{name=ElemName}
-%% end.
-
-%% process_element_child(Node={{xsd, "simpleType"},_,_}) ->
-%%     process_simpleType(Node);
-%% process_element_child(Node={{xsd, "complexType"},_,_}) ->
-%%     process_complexType(Node).
-
 %%%========== Groups
 %%%========== Attribute groups
 
@@ -428,19 +404,6 @@ check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
 %%%   schemaTop ::= ( "redefinable" | element | attribute | notation)
 %%%   redefinable ::= (simpleType | complexType | group | attributeGroup)
 %%%
-process_schema_children({{xsd,"import"}, _Attrs, _Children}, Acc, _TgtNS) ->
-    Acc;
-process_schema_children(E={{xsd,"element"}, _, _}, Acc, TgtNS) ->
-    Element = #element{name=Name} = process_element(E),
-    QName = {TgtNS, Name},
-    [{QName, Element#element{name=QName}} | Acc];
-process_schema_children(Node={{xsd,"simpleType"}, Attrs,_}, Acc, TgtNS) ->
-    TypeName = attribute("name",Attrs),
-    [{{TgtNS,TypeName},process_simpleType(Node)} | Acc];
-process_schema_children(Node={{xsd,"complexType"}, Attrs, _}, Acc, TgtNS) ->
-    TypeName = attribute("name",Attrs),
-    io:format("DB| define type: ~s:~s\n", [TgtNS,TypeName]),
-    [{{TgtNS,TypeName},process_complexType(Node)} | Acc].
 
 process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
     ComplexTypeDef = process_complexType_children(strip_annotations(Children)),
@@ -478,20 +441,10 @@ process_attributes(Attributes) ->
 process_all({{xsd, "all"}, _, Children}) ->
     #all{content=[process_element(Child) || Child <- Children]}.
 
-process_sequence({{xsd, "sequence"}, _Attr, Children}) ->
-    #sequence{content=[process_sequence_children(Child) || Child <- Children]}.
-process_sequence_children({ref, {xsd, "element"},Ref,Attrs}) ->
-    MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
-    MaxOccurs = attribute("maxOccurs", Attrs,
-                          fun ("unbounded")->unbounded;
-                              (V) -> list_to_integer(V)
-                          end,
-                          unbounded),
-    #element_instantiation{element_ref=Ref,
-                           minOccurs=MinOccurs,
-                           maxOccurs=MaxOccurs};
-process_sequence_children(Node) ->
-    process_groupish(Node).
+process_sequence({{xsd, "sequence"}, _Attrs     , Children}) ->
+    #sequence{content=[process_element_or_groupish(Child) || Child <- Children]}.
+process_choice({{xsd,"choice"}, _Attr, Children}) ->
+    #choice{content=[process_element_or_groupish(Child) || Child <- Children]}.
 
 
 %%%%%% <simpleContent> children:
@@ -564,19 +517,23 @@ convert_attribute({{xsd, "attribute"}, Attributes, Children}) ->
            end,
     #attribute{name=Name, type=Type, use=Use}.
 
+%%%========== Element and element groups ("groupish")
 
-process_choice({{xsd,"choice"}, _Attr, Children}) ->
-    #choice{content=[process_choice_children(Child) || Child <- Children]}.
-process_choice_children(Node={{xsd, "sequence"},_,_}) ->
-    process_sequence(Node);
-process_choice_children(Node={{xsd, "choice"},_,_}) ->
-    process_choice(Node);
-process_choice_children({{xsd, "group"}, Attrs,[]}) ->
-    #group{ref=attribute("ref",Attrs)};
-process_choice_children(Node={{xsd, "element"},_,_}) ->
-    process_element(Node).
+process_element_or_groupish({ref, {xsd, "element"},_,_}=Node) ->
+    process_element(Node);
+process_element_or_groupish(Node) ->
+    process_groupish(Node).
 
-%%%========== Element groups ("groupish")
+process_element({ref, {xsd, "element"},Ref,Attrs}) ->
+    MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
+    MaxOccurs = attribute("maxOccurs", Attrs,
+                          fun ("unbounded")->unbounded;
+                              (V) -> list_to_integer(V)
+                          end,
+                          unbounded),
+    #element_instantiation{element_ref=Ref,
+                           minOccurs=MinOccurs,
+                           maxOccurs=MaxOccurs}.
 
 is_groupish({ref, {xsd, "attribute"},_,_}) -> false;
 is_groupish({{xsd, Tag},_,_}) ->
