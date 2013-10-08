@@ -544,6 +544,8 @@ is_groupish({{xsd, Tag},_,_}) ->
     Tag=:="any".
 process_groupish(Node={{xsd, "sequence"},_,_}) ->
     process_sequence(Node);
+process_groupish(Node={{xsd, "all"},_,_}) ->
+    process_all(Node);
 process_groupish(Node={{xsd, "choice"},_,_}) ->
     process_choice(Node);
 process_groupish({{xsd, "group"}, Attrs,[]}) ->
