@@ -4,7 +4,6 @@ XSD:
 - Handle import/include/redefine.
 - Fix test sample files which are invalid or incomplete. (see blacklist)
 - Compute type properties after inheritance.
-- Split XSD processing into multiple modules.
 
 - Resolve all TODOs.
 
@@ -30,3 +29,5 @@ XSD:
 - Handle complexContent (in complexType).
 - Integrate new phase-based approach.
 == Milestone: Old and new XSD approach fully integrated.
+- Split XSD processing into multiple modules.
+  - Introduce 'wsdler_xsd_conversion'.
