@@ -173,11 +173,11 @@ collect_defs_action(schema,"element") ->
 collect_defs_action(_,"element") ->
     [{recurse,element}, {add_to_dict_field, #collect_state.elements, "<none>"}];
 collect_defs_action(_,"attribute") ->
-    [{recurse,attribute}, {add_to_dict_field, #collect_state.attributes, "id"}];
+    [{recurse,attribute}, {add_to_dict_field, #collect_state.attributes, "name"}];
 collect_defs_action(_,"group") ->
-    [{recurse,group},   {add_to_dict_field, #collect_state.groups, "id"}];
+    [{recurse,group},   {add_to_dict_field, #collect_state.groups, "name"}];
 collect_defs_action(_,"attributeGroup") ->
-    [{recurse,group},   {add_to_dict_field, #collect_state.attr_groups, "id"}];
+    [{recurse,group},   {add_to_dict_field, #collect_state.attr_groups, "name"}];
 collect_defs_action(_,"simpleType") ->
     [{recurse,simpleType}, {add_to_dict_field, #collect_state.types, "name"}];
 collect_defs_action(_,"complexType") ->
