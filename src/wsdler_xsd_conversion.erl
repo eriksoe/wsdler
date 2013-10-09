@@ -97,7 +97,7 @@ convert_group({{xsd,"group"}, Attrs, [Child]}, State) ->
 %%%======================================================================
 
 convert_types(Types,State) ->
-    dict:map(fun (_K,V={{xsd,"simpleType"},_,_})  -> process_simpleType(V);
+    dict:map(fun (_K,V={{xsd,"simpleType"},_,_})  -> process_simpleType(V, State);
                  (_K,V={{xsd,"complexType"},_,_}) -> process_complexType(V, State)
              end, Types).
 
@@ -111,34 +111,36 @@ convert_types(Types,State) ->
 %%%  (annotation?, simpleType*)
 %%%%%% <list> children:
 %%%  (annotation?, simpleType*)
-process_simpleType({{xsd, "simpleType"}, _Attr, [Child]}) ->
-    #simpleType{type=process_simpleType_child(Child)}.
-process_simpleType_child({{xsd,"restriction"}, Attrs, Children}) ->
-    process_restriction_children(attribute("base", Attrs), Children);
-process_simpleType_child({{xsd,"list"}, Attrs, Children}) ->
+process_simpleType({{xsd, "simpleType"}, _Attr, [Child]}, State) ->
+    #simpleType{type=process_simpleType_child(Child, State)}.
+process_simpleType_child({{xsd,"restriction"}, Attrs, Children}, State) ->
+    process_restriction_children(attribute("base", Attrs), Children, State);
+process_simpleType_child({{xsd,"list"}, Attrs, Children}, State) ->
     %% TODO: child filtering is not necessary. Do case(@itemtype,Children).
     ItemType = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
 		   [] ->
 		       {named,attribute("itemType", Attrs)};
 		   [ItemTypeElement] ->
-		       process_simpleType_child(ItemTypeElement) % ?
+		       process_simpleType_child(ItemTypeElement, State) % ?
 	       end,
     #simpleListType{itemType=ItemType};
-process_simpleType_child({{xsd,"union"}, Attrs, Children}) ->
+process_simpleType_child({{xsd,"union"}, Attrs, Children}, State) ->
     %% TODO: child filtering is not necessary. Do case(@memberTypes,Children).
     MemberTypes = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
 		      [] ->
 			  [{named,X}
 			   || X<-list_attribute("memberTypes", Attrs)];
 		      MemberTypeElements ->
-			  [process_simpleType_child(X)
+			  [process_simpleType_child(X, State)
                            || X <-MemberTypeElements]
 		  end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
 
-process_restriction_children(Base, Children)->
-        lists:foldl(fun process_restriction_child/2, #restriction{base=Base}, Children).
+process_restriction_children(Base, Children, State)->
+        lists:foldl(fun process_restriction_child/2,
+                    #restriction{base=check_type_existence(Base, State)},
+                    Children).
 process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#restriction{enumeration=[EnumValue | EVs]};
@@ -230,11 +232,11 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}], State)
     AttrContents = lists:map(fun(Child) -> process_attribute(Child, State) end, AttrChildren),
     case Tag of
         "restriction" ->
-            #complexContentRestriction{base = BaseTypeQname,
+            #complexContentRestriction{base = check_type_existence(BaseTypeQname, State),
                                        attributes = AttrContents,
                                        children = ElemContents};
         "extension" ->
-            #complexContentExtension{base = BaseTypeQname,
+            #complexContentExtension{base = check_type_existence(BaseTypeQname, State),
                                      attributes = AttrContents,
                                      children = ElemContents}
     end.
@@ -244,13 +246,13 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}], State)
 process_simpleContent_children([{{xsd,"extension"}, Attributes,Children}],
                                State) ->
     BaseTypeQname = attribute("base", Attributes),
-    #simpleContentExtension{base = BaseTypeQname,
+    #simpleContentExtension{base = check_type_existence(BaseTypeQname, State),
 			    attributes = lists:map(fun(Child) -> process_attribute(Child, State) end, Children)};
 process_simpleContent_children([{{xsd,"restriction"}, Attributes, Children}],
                                State) ->
     BaseTypeQname = attribute("base", Attributes),
     %% TODO: Handle type and facets!
-    #simpleContentRestriction{base = BaseTypeQname,
+    #simpleContentRestriction{base = check_type_existence(BaseTypeQname, State),
                               type = 'TODO',
                               facets = 'TODO',
                               attributes = lists:map(fun(Child) -> process_attribute(Child, State) end, Children)}.
