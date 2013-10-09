@@ -24,7 +24,6 @@ one_xsd_file(Filename) ->
 blacklist() ->
     %% These are test XSD files which are at present not valid:
     [ %% Invalid as verified with xmllint:
-     "test-xsd-15.xsd",
      "test-xsd-17.xsd",
      "test-xsd-18.xsd",
      "test-xsd-19.xsd",
@@ -33,8 +32,6 @@ blacklist() ->
      "test-xsd-41.xsd",
       %% Incomplete:
       "test-xsd-1.xsd", % Missing Items
-      "test-xsd-14.xsd", % Missing Items
-      "test-xsd-15.xsd", % Missing USAddress
       "test-xsd-16.xsd", % Missing USAddress, Items
       "test-xsd-26.xsd", % Missing ipo:Address
       "test-xsd-27.xsd", % Missing UKPostcode
