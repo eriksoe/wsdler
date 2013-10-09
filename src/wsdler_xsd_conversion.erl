@@ -211,7 +211,7 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}], State)
     BaseTypeQname = attribute("base", Attributes),
     case Children/=[] andalso is_groupish(hd(Children)) of
         true ->
-            ElemContents = process_groupish(hd(Children)),
+            ElemContents = process_groupish(hd(Children), State),
             AttrChildren = tl(Children);
         false ->
             ElemContents = [],
@@ -256,19 +256,19 @@ process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}, _State) ->
 
 %%%========== Element and element groups ("groupish")
 
-process_element_or_groupish({ref, {xsd, "element"},_,_}=Node) ->
-    process_element(Node);
-process_element_or_groupish(Node) ->
-    process_groupish(Node).
+process_element_or_groupish({ref, {xsd, "element"},_,_}=Node, State) ->
+    process_element(Node, State);
+process_element_or_groupish(Node, State) ->
+    process_groupish(Node, State).
 
-process_element({ref, {xsd, "element"},Ref,Attrs}) ->
+process_element({ref, {xsd, "element"},Ref,Attrs}, State) ->
     MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
     MaxOccurs = attribute("maxOccurs", Attrs,
                           fun ("unbounded")->unbounded;
                               (V) -> list_to_integer(V)
                           end,
                           unbounded),
-    #element_instantiation{element_ref=Ref,
+    #element_instantiation{element_ref=check_element_existence(Ref,State),
                            minOccurs=MinOccurs,
                            maxOccurs=MaxOccurs}.
 
@@ -279,27 +279,29 @@ is_groupish({{xsd, Tag},_,_}) ->
     Tag=:="sequence" orelse
     Tag=:="all" orelse
     Tag=:="any".
-process_groupish(Node={{xsd, "sequence"},_,_}) ->
-    process_sequence(Node);
-process_groupish(Node={{xsd, "all"},_,_}) ->
-    process_all(Node);
-process_groupish(Node={{xsd, "choice"},_,_}) ->
-    process_choice(Node);
-process_groupish({{xsd, "group"}, Attrs,[]}) ->
-    #group{ref=attribute("ref",Attrs)};
-process_groupish(Node={{xsd, "element"},_,_}) ->
-    process_element(Node);
-process_groupish({{xsd, "any"},_,_}) ->
+process_groupish(Node={{xsd, "sequence"},_,_}, State) ->
+    process_sequence(Node, State);
+process_groupish(Node={{xsd, "all"},_,_}, State) ->
+    process_all(Node, State);
+process_groupish(Node={{xsd, "choice"},_,_}, State) ->
+    process_choice(Node, State);
+process_groupish({{xsd, "group"}, Attrs,[]}, _State) ->
+    #group{ref=attribute("ref",Attrs)}; % TODO: pull groups up
+process_groupish(Node={{xsd, "element"},_,_}, State) ->
+    process_element(Node, State);
+process_groupish({{xsd, "any"},_,_}, _State) ->
     #any{}.
 
 
-process_all({{xsd, "all"}, _, Children}) ->
-    #all{content=[process_element(Child) || Child <- Children]}.
+process_all({{xsd, "all"}, _, Children}, State) ->
+    #all{content=[process_element(Child, State) || Child <- Children]}.
 
-process_sequence({{xsd, "sequence"}, _Attrs     , Children}) ->
-    #sequence{content=[process_element_or_groupish(Child) || Child <- Children]}.
-process_choice({{xsd,"choice"}, _Attr, Children}) ->
-    #choice{content=[process_element_or_groupish(Child) || Child <- Children]}.
+process_sequence({{xsd, "sequence"}, _Attrs, Children}, State) ->
+    #sequence{content=[process_element_or_groupish(Child, State)
+                       || Child <- Children]}.
+process_choice({{xsd,"choice"}, _Attr, Children}, State) ->
+    #choice{content=[process_element_or_groupish(Child, State)
+                     || Child <- Children]}.
 
 %%%========== Attribute-ish
 
