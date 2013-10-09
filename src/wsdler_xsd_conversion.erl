@@ -86,9 +86,9 @@ convert_element2(Attrs, Children, State) ->
 %%%========== Conversion of Types   ====================================
 %%%======================================================================
 
-convert_types(Types,_State) ->
+convert_types(Types,State) ->
     dict:map(fun (_K,V={{xsd,"simpleType"},_,_})  -> process_simpleType(V);
-                 (_K,V={{xsd,"complexType"},_,_}) -> process_complexType(V)
+                 (_K,V={{xsd,"complexType"},_,_}) -> process_complexType(V, State)
              end, Types).
 
 %%%========== SimpleType ========================================
@@ -165,8 +165,8 @@ process_restriction_child({{xsd, "totalDigits"}, Attrs, _Children}, #restriction
 
 %%%========== ComplexType ========================================
 
-process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
-    ComplexTypeDef = process_complexType_children(Children),
+process_complexType({{xsd,"complexType"}, _Attrs, Children}, State) ->
+    ComplexTypeDef = process_complexType_children(Children, State),
     #complexType{content = ComplexTypeDef}.
 
 %%%%%% <complexType> children: %%%%%%%%%%%%%%%%%%%%
@@ -177,23 +177,24 @@ process_complexType({{xsd,"complexType"}, _Attrs, Children}) ->
 %%%   typeDefParticle ::= ( group | all | choice | sequence )
 %%%   attrDecls ::= ( (attribute | attributeGroup)*, anyAttribute? )
 %%%
--spec process_complexType_children/1 :: ([erlsom_dom()]) ->complexTypeDef().
-process_complexType_children([{{xsd,"simpleContent"},_,Children}]) ->
-    process_simpleContent_children(Children);
-process_complexType_children([{{xsd,"complexContent"},_,Children}]) ->
-    process_complexContent_children(Children);
-process_complexType_children(Children) ->
-    process_complexContentTypeModel(Children).
+-spec process_complexType_children/2 :: ([erlsom_dom()], #refcheck_state{}) ->complexTypeDef().
+process_complexType_children([{{xsd,"simpleContent"},_,Children}], State) ->
+    process_simpleContent_children(Children, State);
+process_complexType_children([{{xsd,"complexContent"},_,Children}], State) ->
+    process_complexContent_children(Children, State);
+process_complexType_children(Children, State) ->
+    process_complexContentTypeModel(Children, State).
 
 %%% Quoth the spec, about "complexTypeModel":
 %%%   This branch is short for
 %%%   <complexContent>
 %%%     <restriction base="xs:anyType">...</restriction>
 %%%   </complexContent>
-process_complexContentTypeModel(Children) ->
-    process_complexContent_children([{{xsd,"restriction"},
-                                      [{{[],"base"}, {xsd,"anyType"}}],
-                                      Children}]).
+process_complexContentTypeModel(Children, State) ->
+    SynthNode = {{xsd,"restriction"},
+                 [{{[],"base"}, {xsd,"anyType"}}],
+                 Children},
+    process_complexContent_children([SynthNode], State).
 
 %%%%%% <complexContent> children: %%%%%%%%%%%%%%%%%%%%
 %%   (annotation?, (restriction | extension))
@@ -204,7 +205,7 @@ process_complexContentTypeModel(Children) ->
 %%%%%% <extension> children: %%%%%%%%%%%%%%%%%%%%
 %%   (annotation?, ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?)))
 %% </extension>
-process_complexContent_children([{{xsd,Tag}, Attributes, Children}])
+process_complexContent_children([{{xsd,Tag}, Attributes, Children}], State)
   when Tag =:= "restriction";
        Tag =:= "extension" ->
     BaseTypeQname = attribute("base", Attributes),
@@ -216,7 +217,7 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}])
             ElemContents = [],
             AttrChildren = Children
     end,
-    AttrContents = lists:map(fun(Child) -> process_attribute(Child) end, AttrChildren),
+    AttrContents = lists:map(fun(Child) -> process_attribute(Child, State) end, AttrChildren),
     case Tag of
         "restriction" ->
             #complexContentRestriction{base = BaseTypeQname,
@@ -230,25 +231,27 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}])
 
 %%%%%% <simpleContent> children:
 %%% (annotation?, (restriction | extension))
-process_simpleContent_children([{{xsd,"extension"},Attributes ,Children}]) ->
+process_simpleContent_children([{{xsd,"extension"}, Attributes,Children}],
+                               State) ->
     BaseTypeQname = attribute("base", Attributes),
     #simpleContentExtension{base = BaseTypeQname,
-			    attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)};
-process_simpleContent_children([{{xsd,"restriction"},Attributes ,Children}]) ->
+			    attributes = lists:map(fun(Child) -> process_attribute(Child, State) end, Children)};
+process_simpleContent_children([{{xsd,"restriction"}, Attributes, Children}],
+                               State) ->
     BaseTypeQname = attribute("base", Attributes),
     %% TODO: Handle type and facets!
     #simpleContentRestriction{base = BaseTypeQname,
                               type = 'TODO',
                               facets = 'TODO',
-                              attributes = lists:map(fun(Child) -> process_attribute(Child) end, Children)}.
+                              attributes = lists:map(fun(Child) -> process_attribute(Child, State) end, Children)}.
 
--spec process_attribute/1 :: (erlsom_dom()) -> attribute_ish().
-process_attribute({ref, {xsd, "attribute"}, Ref, Attributes}) ->
+-spec process_attribute/2 :: (erlsom_dom(), #refcheck_state{}) -> attribute_ish().
+process_attribute({ref, {xsd, "attribute"}, Ref, Attributes}, State) ->
     Use  = list_to_atom(attribute("use", Attributes, "undefined")),
-    #attribute_instantiation{ref=Ref, use=Use};
-process_attribute({ref, {xsd, "attributeGroup"}, Ref, _Attributes}) ->
-    #attributeGroup_ref{ref=Ref};
-process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
+    #attribute_instantiation{ref=check_attribute_existence(Ref,State), use=Use};
+process_attribute({ref, {xsd, "attributeGroup"}, Ref, _Attributes}, State) ->
+    #attributeGroup_ref{ref=check_attributeGroup_existence(Ref,State)};
+process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}, _State) ->
     any_attribute.
 
 %%%========== Element and element groups ("groupish")
@@ -350,6 +353,18 @@ check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
         orelse error({unresolved_group, GroupID,
                      dict:fetch_keys(Dict)}),
     GroupID.
+
+check_attribute_existence(AttributeID, #refcheck_state{attributes=Dict}) ->
+    dict:is_key(AttributeID, Dict)
+        orelse error({unresolved_attribute, AttributeID,
+                     dict:fetch_keys(Dict)}),
+    AttributeID.
+
+check_attributeGroup_existence(AttributeGroupID, #refcheck_state{attr_groups=Dict}) ->
+    dict:is_key(AttributeGroupID, Dict)
+        orelse error({unresolved_attributeGroup, AttributeGroupID,
+                     dict:fetch_keys(Dict)}),
+    AttributeGroupID.
 
 check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
