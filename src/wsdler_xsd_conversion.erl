@@ -116,23 +116,21 @@ process_simpleType({{xsd, "simpleType"}, _Attr, [Child]}, State) ->
 process_simpleType_child({{xsd,"restriction"}, Attrs, Children}, State) ->
     process_restriction_children(attribute("base", Attrs), Children, State);
 process_simpleType_child({{xsd,"list"}, Attrs, Children}, State) ->
-    %% TODO: child filtering is not necessary. Do case(@itemtype,Children).
-    ItemType = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
-		   [] ->
-		       {named,attribute("itemType", Attrs)};
-		   [ItemTypeElement] ->
+    ItemType = case {attribute("itemType", Attrs, undefined), Children} of
+                   {IT, []} when IT /= undefined ->
+		       {named, IT}; % TODO
+                   {undefined, [ItemTypeElement]} ->
 		       process_simpleType_child(ItemTypeElement, State) % ?
 	       end,
     #simpleListType{itemType=ItemType};
 process_simpleType_child({{xsd,"union"}, Attrs, Children}, State) ->
-    %% TODO: child filtering is not necessary. Do case(@memberTypes,Children).
-    MemberTypes = case [X || X={{xsd,"simpleType"},_,_} <- Children] of
+    MemberTypes = case Children of
 		      [] ->
 			  [{named,X}
 			   || X<-list_attribute("memberTypes", Attrs)];
-		      MemberTypeElements ->
+		      _ ->
 			  [process_simpleType_child(X, State)
-                           || X <-MemberTypeElements]
+                           || X <-Children]
 		  end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
