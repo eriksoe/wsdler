@@ -155,14 +155,21 @@ perform_collect_defs_action(add_to_includes_etc, Node, Acc) ->
 perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
                             Node={Tag,Attrs,_}, Acc) ->
     TargetNS = Acc#collect_state.targetNS,
-    ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
-    OtherAttrs = lists:keydelete(IDAttr, 1, Attrs),
-    Key = if is_reference(ID) -> ID;
-             true -> {TargetNS, ID}
-          end,
-    Old = element(FNr,Acc),
-    New = dict:store(Key, Node, Old),
-    Acc2 = setelement(FNr, Acc, New),
+    case wsdler_xml:attribute("ref", Attrs, undefined) of
+        undefined ->
+            ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
+            OtherAttrs = lists:keydelete(IDAttr, 1, Attrs),
+            Key = if is_reference(ID) -> ID;
+                     true -> {TargetNS, ID}
+                  end,
+            Old = element(FNr,Acc),
+            New = dict:store(Key, Node, Old),
+            Acc2 = setelement(FNr, Acc, New);
+        RefAttr ->
+            Key = RefAttr,
+            OtherAttrs = lists:keydelete("ref", 1, Attrs),
+            Acc2 = Acc
+    end,
     {{ref,Tag,Key,OtherAttrs}, Acc2};
 perform_collect_defs_action({recurse, RecStateName}, {Tag,Attrs,Children}, Acc) ->
     {Children2,Acc2} = lists:mapfoldl(fun(C,A) ->
@@ -506,7 +513,7 @@ process_attribute({{xsd, "anyAttribute"},_Attributes, _Children}) ->
 %% TODO: Attribute groups.
 
 convert_attributes(Attributes, State) ->
-    io:format(user, "DB| convert_attributes: ~p\n", [Attributes]),
+    io:format(user, "DB| convert_attributes: ~p\n", [dict:to_list(Attributes)]),
     dict:map(fun (_K,V)->convert_attribute(V,State) end, Attributes).
 
 convert_attribute({{xsd, "attribute"}, Attributes, Children}, State) ->
