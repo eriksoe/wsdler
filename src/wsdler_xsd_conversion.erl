@@ -22,11 +22,12 @@ convert_to_internal_form(#refcheck_state{
                            }=State) ->
     NewElements = convert_elements(Elements, State),
     NewAttributes = convert_attributes(Attributes, State),
+    NewGroups = convert_groups(Groups, State),
     NewTypes = convert_types(Types, State),
     #schema{elements=NewElements,
             attributes=NewAttributes,
-            groups=Groups,
-            attr_groups=AttrGroups,
+            groups=NewGroups,
+            attr_groups=AttrGroups, % TODO: Convert
             types=NewTypes,
             type_order=TypeOrder}.
 
@@ -81,6 +82,15 @@ convert_element2(Attrs, Children, State) ->
 %%%======================================================================
 %%%========== Conversion of Groups   ====================================
 %%%======================================================================
+
+convert_groups(Groups,State) ->
+    io:format(user, "DB| convert_groups: ~p\n", [dict:to_list(Groups)]),
+    dict:map(fun (_K,V)->convert_group(V,State) end, Groups).
+
+%%%%%% <group> children: %%%%%%%%%%%%%%%%%%%%
+%%% (annotation?, (all | choice | sequence)?)
+convert_group({{xsd,"group"}, Attrs, [Child]}, State) ->
+    #group{content=process_groupish(Child, State)}.
 
 %%%======================================================================
 %%%========== Conversion of Types   ====================================
@@ -285,8 +295,8 @@ process_groupish(Node={{xsd, "all"},_,_}, State) ->
     process_all(Node, State);
 process_groupish(Node={{xsd, "choice"},_,_}, State) ->
     process_choice(Node, State);
-process_groupish({{xsd, "group"}, Attrs,[]}, _State) ->
-    #group{ref=attribute("ref",Attrs)}; % TODO: pull groups up
+process_groupish({ref, {xsd, "group"}, Ref, _Attrs}, State) ->
+    #group_instantiation{ref=check_group_existence(Ref,State)};
 process_groupish(Node={{xsd, "element"},_,_}, State) ->
     process_element(Node, State);
 process_groupish({{xsd, "any"},_,_}, _State) ->

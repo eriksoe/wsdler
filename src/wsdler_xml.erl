@@ -65,6 +65,7 @@ qnamePred({attribute, {xsd, "element"},     {[],"ref"}}) -> true;
 qnamePred({attribute, {xsd, "element"},     {[],"type"}}) -> true;
 qnamePred({attribute, {xsd, "attribute"},   {[],"ref"}}) -> true;
 qnamePred({attribute, {xsd, "attribute"},   {[],"type"}}) -> true;
+qnamePred({attribute, {xsd, "group"},       {[],"ref"}}) -> true;
 qnamePred({attribute, {xsd, "restriction"}, {[],"base"}}) -> true;
 qnamePred({attribute, {xsd, "extension"  }, {[],"base"}}) -> true;
 qnamePred(_) -> false.

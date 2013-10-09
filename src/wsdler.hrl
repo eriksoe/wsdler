@@ -45,7 +45,8 @@
 
 %%%========== Element group related: ========================================
 
--record(group, {ref :: qname()}).
+-record(group_instantiation, {ref :: qname()}).
+-record(group,    {content :: [element_ish()]}).
 -record(choice,   {content :: [element_ish()]}).
 -record(sequence, {content :: [element_ish()]}).
 -record(all, {content :: [element_ish()]}).
