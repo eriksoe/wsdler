@@ -1,22 +1,19 @@
 ==== TO DO: ====
 XSD:
-- Split internal type for element into "name+attrs+children" and "occurs"
-- Handle "ref" case for elements (incl. occurs-attributes)
 - Type-annotations (and "dialyzer" Makefile target)
-- Handle complexContent (in complexType).
 - Handle import/include/redefine.
 - Fix test sample files which are invalid or incomplete. (see blacklist)
+- Compute type properties after inheritance.
+- Split XSD processing into multiple modules.
 
 - Resolve all TODOs.
 
-== Milestone: Old and new XSD approach fully integrated.
 == Milestone: Ability to perform a WSDL call, with any request content.
 == Milestone: Ability to perform a WSDL call, with valid request content.
 == Milestone: xml-lint tests succeed for schemas in test/data.
 == Milestone: xml-lint tests succeed for randomly generated schemas.
 
 ==== DOING ====
-- Integrate new phase-based approach. (eriksoe)
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
@@ -28,4 +25,8 @@ XSD:
   (By flattening)
 - Implement phase 1: "flatten and collect"
 - Phase 3a - Order types by "base" relation.
-
+- Handle "ref" case for elements (incl. occurs-attributes)
+  - Split internal type for element into "name+attrs+children" and "occurs"
+- Handle complexContent (in complexType).
+- Integrate new phase-based approach.
+== Milestone: Old and new XSD approach fully integrated.
