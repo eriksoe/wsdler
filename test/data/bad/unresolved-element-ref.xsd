@@ -1,0 +1,14 @@
+<!-- Unresolved element.ref
+        Expected: {unresolved_element, {undefined,"items"}, [{"http://url/", "xyz"}]}
+/", "PurchaseOrderType"}]}
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="http://url/">
+  <xsd:complexType name="PurchaseOrderType">
+    <xsd:sequence>
+      <xsd:element ref="items"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:element name="xyz" type="xsd:string"/>
+</xsd:schema>
