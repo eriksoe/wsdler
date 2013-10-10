@@ -328,23 +328,23 @@ convert_attributes(Attributes, State) ->
     io:format(user, "DB| convert_attributes: ~p\n", [dict:to_list(Attributes)]),
     dict:map(fun (_K,V)->convert_attribute(V,State) end, Attributes).
 
+%%%%%% <attribute> children: %%%%%%%%%%%%%%%%%%%%
+%%% (annotation?, simpleType?)
 convert_attribute({{xsd, "attribute"}, Attributes, Children}, State) ->
     %% 3 If the item's parent is not <schema>, then all of the following must be true:
     %% 3.1 One of ref or name must be present, but not both.
     %% 3.2 If ref is present, then all of <simpleType>, form and type must be absent.
     %% 4 type and <simpleType> must not both be present.
-    Ref = attribute("ref", Attributes, undefined),
-    Name = attribute("name", Attributes, undefined),
+    %% "ref" is taken care of: the collected attributes never have "ref" set.
     TypeName = attribute("type", Attributes, undefined),
-    Use  = attribute("use", Attributes, undefined),
-    Type = case {Ref,TypeName,Children} of
-               {_, undefined, []} when Ref /= undefined ->
-                   {'TODO', ref, Ref};
-               {undefined, _, []} when TypeName /= undefined ->
+    Type = case {TypeName,Children} of
+               {_, []} when TypeName /= undefined ->
                    TypeName;
-               {undefined, undefined, [{ref,{xsd,"simpleType"},TypeRef,_Attrs}]} ->
+               {undefined, [{ref,{xsd,"simpleType"},TypeRef,_Attrs}]} ->
                    TypeRef
            end,
+    Name = attribute("name", Attributes, undefined),
+    Use  = attribute("use", Attributes, undefined),
     #attribute{name=Name, type=check_type_existence(Type,State), use=Use}.
 
 %%%======================================================================
