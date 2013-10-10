@@ -133,13 +133,26 @@ perform_collect_defs_action(ignore, _Node, Acc) ->
 perform_collect_defs_action(add_to_includes_etc, Node, Acc) ->
     OldList = Acc#collect_state.includes_etc,
     {removed, Acc#collect_state{includes_etc=[Node | OldList]}};
-perform_collect_defs_action({add_to_dict_field, FNr, IDAttr},
+perform_collect_defs_action({register_in_dict, FNr, IDAttr},
+                            Node={Tag,Attrs,_}, Acc) ->
+    TargetNS = Acc#collect_state.targetNS,
+    undefined = wsdler_xml:attribute("ref", Attrs, undefined),
+    ID = wsdler_xml:attribute(IDAttr, Attrs),
+    OtherAttrs = lists:keydelete(IDAttr, 1, Attrs),
+    Key = if is_reference(ID) -> ID;
+             true -> {TargetNS, ID}
+          end,
+    Old = element(FNr,Acc),
+    New = dict:store(Key, Node, Old),
+    Acc2 = setelement(FNr, Acc, New),
+    {removed, Acc2};
+perform_collect_defs_action({refer_to_dict, FNr},
                             Node={Tag,Attrs,_}, Acc) ->
     TargetNS = Acc#collect_state.targetNS,
     case wsdler_xml:attribute("ref", Attrs, undefined) of
         undefined ->
-            ID = wsdler_xml:attribute(IDAttr, Attrs, make_ref()),
-            OtherAttrs = lists:keydelete(IDAttr, 1, Attrs),
+            ID = make_ref(),
+            OtherAttrs = Attrs,
             Key = if is_reference(ID) -> ID;
                      true -> {TargetNS, ID}
                   end,
@@ -169,19 +182,29 @@ collect_defs_action(schema,"import")   -> add_to_includes_etc;
 collect_defs_action(schema,"include")  -> add_to_includes_etc;
 collect_defs_action(schema,"redefine") -> add_to_includes_etc;
 collect_defs_action(schema,"element") ->
-    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "name"}];
+    [{recurse,element}, {register_in_dict, #collect_state.elements, "name"}];
 collect_defs_action(_,"element") ->
-    [{recurse,element}, {add_to_dict_field, #collect_state.elements, "<none>"}];
+    [{recurse,element}, {refer_to_dict, #collect_state.elements}];
+collect_defs_action(schema,"attribute") ->
+    [{recurse,attribute}, {register_in_dict, #collect_state.attributes, "name"}];
 collect_defs_action(_,"attribute") ->
-    [{recurse,attribute}, {add_to_dict_field, #collect_state.attributes, "name"}];
+    [{recurse,attribute}, {refer_to_dict, #collect_state.attributes}];
+collect_defs_action(schema,"group") ->
+    [{recurse,group},   {register_in_dict, #collect_state.groups, "name"}];
 collect_defs_action(_,"group") ->
-    [{recurse,group},   {add_to_dict_field, #collect_state.groups, "name"}];
+    [{recurse,group},   {refer_to_dict, #collect_state.groups}];
+collect_defs_action(schema,"attributeGroup") ->
+    [{recurse,group},   {register_in_dict, #collect_state.attr_groups, "name"}];
 collect_defs_action(_,"attributeGroup") ->
-    [{recurse,group},   {add_to_dict_field, #collect_state.attr_groups, "name"}];
+    [{recurse,group},   {refer_to_dict, #collect_state.attr_groups}];
+collect_defs_action(schema,"simpleType") ->
+    [{recurse,simpleType}, {register_in_dict, #collect_state.types, "name"}];
 collect_defs_action(_,"simpleType") ->
-    [{recurse,simpleType}, {add_to_dict_field, #collect_state.types, "name"}];
+    [{recurse,simpleType}, {refer_to_dict, #collect_state.types}];
+collect_defs_action(schema,"complexType") ->
+    [{recurse,complexType}, {register_in_dict, #collect_state.types, "name"}];
 collect_defs_action(_,"complexType") ->
-    [{recurse,complexType}, {add_to_dict_field, #collect_state.types, "name"}];
+    [{recurse,complexType}, {refer_to_dict, #collect_state.types}];
 collect_defs_action(simpleType,"restriction") -> [];
 collect_defs_action(simpleType,"list")       -> {recurse, list};
 collect_defs_action(simpleType,"union")      -> {recurse, union};
