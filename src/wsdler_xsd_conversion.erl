@@ -47,17 +47,6 @@ convert_elements(Elements,State) ->
     dict:map(fun (_K,V)->convert_element(V,State) end, Elements).
 
 convert_element({{xsd,"element"}, Attrs, Children}, State) ->
-    case attribute("ref",Attrs,undefined) of
-        undefined ->
-            convert_element2(Attrs, Children, State);
-        RefName ->
-            check_element_existence(RefName, State),
-            {{xsd,"element"},Attrs2,Children2} =
-                dict:fetch(RefName, State#refcheck_state.elements),
-            convert_element2(Attrs2,Children2, State)
-    end.
-
-convert_element2(Attrs, Children, State) ->
     ElemName = attribute("name",Attrs,undefined),
     TypeName = attribute("type",Attrs,undefined),
     io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
@@ -89,7 +78,7 @@ convert_groups(Groups,State) ->
 
 %%%%%% <group> children: %%%%%%%%%%%%%%%%%%%%
 %%% (annotation?, (all | choice | sequence)?)
-convert_group({{xsd,"group"}, Attrs, [Child]}, State) ->
+convert_group({{xsd,"group"}, _Attrs, [Child]}, State) ->
     #group{content=process_groupish(Child, State)}.
 
 %%%======================================================================
@@ -351,37 +340,40 @@ convert_attribute({{xsd, "attribute"}, Attributes, Children}, State) ->
 %%%========== Conversion of Attribute groups ============================
 %%%======================================================================
 
+%% TODO.
 
 %%%============================== Utilities ==============================
 
 check_element_existence(ElementID, #refcheck_state{elements=Dict}) ->
     dict:is_key(ElementID, Dict)
         orelse error({unresolved_element, ElementID,
-                     dict:fetch_keys(Dict)}),
+                     name_keys(dict:fetch_keys(Dict))}),
     ElementID.
 
 check_group_existence(GroupID, #refcheck_state{groups=Dict}) ->
     dict:is_key(GroupID, Dict)
         orelse error({unresolved_group, GroupID,
-                     dict:fetch_keys(Dict)}),
+                     name_keys(dict:fetch_keys(Dict))}),
     GroupID.
 
 check_attribute_existence(AttributeID, #refcheck_state{attributes=Dict}) ->
     dict:is_key(AttributeID, Dict)
         orelse error({unresolved_attribute, AttributeID,
-                     dict:fetch_keys(Dict)}),
+                     name_keys(dict:fetch_keys(Dict))}),
     AttributeID.
 
 check_attributeGroup_existence(AttributeGroupID, #refcheck_state{attr_groups=Dict}) ->
     dict:is_key(AttributeGroupID, Dict)
         orelse error({unresolved_attributeGroup, AttributeGroupID,
-                     dict:fetch_keys(Dict)}),
+                     name_keys(dict:fetch_keys(Dict))}),
     AttributeGroupID.
 
 check_type_existence(TypeID={xsd,_}, _) -> TypeID;
 check_type_existence(TypeID, #refcheck_state{types=Dict}) ->
     dict:is_key(TypeID, Dict)
         orelse error({unresolved_type_reference, TypeID,
-                      dict:fetch_keys(Dict)}),
+                      name_keys(dict:fetch_keys(Dict))}),
     TypeID.
 
+name_keys(KeyList) ->
+    lists:sort(lists:filter(fun(X) -> not is_reference(X) end, KeyList)).

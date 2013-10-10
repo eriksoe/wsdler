@@ -1,0 +1,10 @@
+<!-- Unresolved attribute.ref
+        Expected: {unresolved_attribute, {undefined,"country"}, []}
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="http://url/">
+  <xsd:complexType name="PurchaseOrderType">
+    <xsd:sequence/>
+    <xsd:attribute ref="country"/>
+  </xsd:complexType>
+</xsd:schema>

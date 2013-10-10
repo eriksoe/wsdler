@@ -1,0 +1,10 @@
+<!-- Unresolved attribute.type
+        Expected: {unresolved_type_reference, {undefined,"Country"}, [{"http://url/","PurchaseOrderType"}]}
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="http://url/">
+  <xsd:complexType name="PurchaseOrderType">
+    <xsd:sequence/>
+    <xsd:attribute name="country" type="Country"/>
+  </xsd:complexType>
+</xsd:schema>

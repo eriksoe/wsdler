@@ -1,0 +1,11 @@
+<!-- Unresolved attribute.ref (non-top-level attribute exists)
+        Expected: {unresolved_attribute, {undefined,"lingo"}, []}
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="http://url/">
+  <xsd:complexType name="PurchaseOrderType">
+    <xsd:sequence/>
+    <xsd:attribute name="lingo" type="xsd:string"/>
+    <xsd:attribute ref="lingo"/>
+  </xsd:complexType>
+</xsd:schema>
