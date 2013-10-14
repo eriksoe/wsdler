@@ -1,0 +1,83 @@
+digraph XSD {
+
+  complexType -> simpleContent;
+  complexType -> complexContent;
+  complexType -> "group-ish";
+  complexType -> "attribute-ish";
+
+  simpleContent -> "simpleC-restriction";
+  simpleContent -> "simpleC-extension";
+
+  complexContent -> "complexC-restriction";
+  complexContent -> "complexC-extension";
+
+  "simpleC-restriction" -> simpleType;
+  "simpleC-restriction" -> facet;
+  "simpleC-restriction" -> "attribute-ish";
+
+  "simpleC-extension" -> "attribute-ish";
+
+  "complexC-restriction" -> "group-ish";
+  "complexC-restriction" -> "attribute-ish";
+
+  "complexC-extension" -> "group-ish";
+  "complexC-extension" -> "attribute-ish";
+
+//--------------------
+  simpleType -> "simpleT-restriction";
+  simpleType -> "simpleT-list";
+  simpleType -> "simpleT-union";
+
+  "simpleT-list" -> simpleType;
+  "simpleT-union" -> simpleType;
+
+  "simpleT-restriction" -> simpleType;
+  "simpleT-restriction" -> facet;
+
+//--------------------
+  "group-ish" -> group;
+  "group-ish" -> all;
+  "group-ish" -> choice;
+  "group-ish" -> sequence;
+
+  "attribute-ish" -> attribute;
+  "attribute-ish" -> attributeGroup;
+  "attribute-ish" -> anyAttribute;
+
+//--------------------
+  group -> all;
+  group -> choice;
+  group -> sequence;
+
+  all -> element;
+
+  choice -> element;
+  choice -> "group-ish";
+  choice -> any;
+
+  sequence -> element;
+  sequence -> "group-ish";
+  sequence -> any;
+
+//--------------------
+  element -> simpleType;
+  element -> complexType;
+
+//--------------------
+  "attribute" -> simpleType;
+
+//--------------------
+  node [shape=box, fontsize=10];
+  facet -> minExclusive;
+  facet -> minInclusive;
+  facet -> maxExclusive;
+  facet -> maxInclusive;
+  facet -> totalDigits;
+  facet -> fractionDigits;
+  facet -> length;
+  facet -> minLength;
+  facet -> maxLength;
+  facet -> enumeration;
+  facet -> whiteSpace;
+  facet -> pattern;
+}

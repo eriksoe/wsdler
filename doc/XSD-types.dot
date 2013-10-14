@@ -1,0 +1,93 @@
+digraph XSD {
+  //==================== Root.
+  anySimpleType [label="anySimpleType\nFacets: pattern"];
+  anyType -> anySimpleType;
+  anyType -> "all complex types";
+
+  //==================== Simple data type properties.
+  "<ordered>" [shape=box, label="<ordered>\nFacets: min/max"];
+  "<unordered>" [shape=box];
+  "<numeric>" [shape=box];
+  "<time>" [shape=box];
+  "<binaries>" [shape=box, label="<binaries>\nFacets: length,minLength,maxLength"];
+  "<names>" [shape=box];
+  "<simple atomics>" [shape=box, label="<simple atomics>\nFacets: enumeration, whiteSpace"];
+  "<simple lists>" [shape=box, label="<simple lists>\nFacets: length,minLength,maxLength, whiteSpace"];
+  "<simple unions>" [shape=box, label="<simple unions>\nFacets: enumeration"];
+
+  anySimpleType -> "<simple atomics>";
+  anySimpleType -> "<simple lists>";
+  anySimpleType -> "<simple unions>";
+
+  "<simple atomics>" -> "<ordered>";
+  "<simple atomics>" -> "<unordered>";
+  "<ordered>" -> "<numeric>";
+  "<ordered>" -> "<time>" [minlen=4];
+  "<unordered>" -> "<binaries>";
+  "<unordered>" -> "<names>";
+
+  //==================== Primitive types.
+
+  subgraph cluster_primitive_other {
+    string [label="string\nFacets: length,minLength,maxLength"];
+    boolean;
+  }
+  subgraph cluster_primitive_numeric {
+    float; double;
+    decimal [label="decimal\nFacets: totalDigits, fractionDigits"];
+  }
+  subgraph cluster_primitive_time {
+    duration;
+    dateTime; date; time;
+    gYearMonth; gMonthDay; gYear; gMonth; gDay;
+  }
+  subgraph cluster_primitive_binaries {
+    hexBinary; base64Binary;
+  }
+  subgraph cluster_primitive_names {
+    anyURI;
+    QName [label="QName"];
+    NOTATION [label="NOTATION"];
+  }
+
+  "<unordered>" -> string;
+  "<unordered>" -> boolean;
+
+  "<time>" -> duration;
+  "<time>" -> dateTime;
+  "<time>" -> date;
+  "<time>" -> time;
+  "<time>" -> gYearMonth [minlen=2];
+  "<time>" -> gMonthDay [minlen=2];
+  "<time>" -> gYear [minlen=2];
+  "<time>" -> gMonth [minlen=2];
+  "<time>" -> gDay [minlen=2];
+
+  "<numeric>" -> float;
+  "<numeric>" -> double;
+  "<numeric>" -> decimal;
+
+  "<names>" -> anyURI;
+  "<names>" -> QName;
+  "<names>" -> NOTATION;
+
+  "<binaries>" -> hexBinary;
+  "<binaries>" -> base64Binary;
+
+  //==================== Derived types.
+  // Derived - numeric:
+  decimal -> integer;
+  integer -> nonPositiveInteger -> negativeInteger;
+  integer -> nonNegativeInteger -> positiveInteger;
+  integer -> long -> int -> short -> byte;
+  nonNegativeInteger -> unsignedLong -> unsignedInt -> unsignedShort -> unsignedByte;
+
+  // Derived - string:
+  string -> normalizedString -> token;
+  token -> language;
+  token -> Name -> NCName;
+  token -> NMTOKEN;
+  NCName -> ID;
+  NCName -> IDREF;
+  NCName -> ENTITY;
+}
