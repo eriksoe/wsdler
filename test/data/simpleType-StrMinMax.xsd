@@ -1,0 +1,12 @@
+
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+	xmlns:tgn="http://www.example.org"
+        targetNamespace="http://www.example.org">
+  <element name="tag" type="tgn:StrMinMax"/>
+  <simpleType name="StrMinMax">
+    <restriction base="string">
+      <minLength value="3"/>
+      <maxLength value="3"/>
+    </restriction>
+  </simpleType>
+</schema>

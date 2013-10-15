@@ -1,9 +1,23 @@
 -module(wsdler_generators).
 
 -export([generator/2]).
+-export([generate/2]).
 
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
+
+generate(ElemName, Schema) ->
+    case wsdler_xsd:lookup_element(ElemName, Schema) of
+	#element{name=Name, type=Type} ->
+	    case wsdler_xsd:lookup_type(Type, Schema) of
+		#complexType{} ->
+		    %% TODO: Handling of complex types.
+		    {'TODO', complexType2};
+		#simpleType{type=TypeDef} ->
+		    ?LET(BodyGen, generator(TypeDef), 
+			 "<"++Name++" xmlns=\"http://www.example.org\">"++ BodyGen ++ "</"++Name++">")
+	    end
+    end.
 
 generator(TypeID, Schema) ->
     Type = wsdler_xsd:lookup_type(TypeID, Schema),
@@ -38,7 +52,7 @@ generator(#restriction{base="dateTime"}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern
     ?LET(X, resize(5,real()),
          format_years_from_now_as_datetime(math:pow(X,7)));
-generator(#restriction{base="string", pattern=Pattern}) when Pattern /= undefined ->
+generator(#restriction{base={xsd, "string"}, pattern=Pattern}) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
     Regex = wsdler_regex:from_string(Pattern),
     wsdler_regex:to_generator(Regex);
@@ -83,13 +97,16 @@ string_gen(MinLen0, MaxLen) ->
     if MaxLen==undefined ->
             ?LET(X, int(),
                  [char_gen() || _ <- lists:seq(1,MinLen+abs(X))]);
+       MinLen==MaxLen ->
+	    [char_gen() || _ <- lists:seq(1,MinLen)];
        true ->
-            ?LET(X, choose(MinLen,MaxLen),
+	    ?LET(X, choose(MinLen,MaxLen),
                  [char_gen() || _ <- lists:seq(1,X)])
     end.
 
 char_gen() ->
     frequency([{20,char()},
-               {5,choose(128,255)},
-               {2,choose(256,16#D7FF)},
-               {1,choose(16#E000,16#FFFD)}]).
+	       %% TODO, reenable these!
+               {0,choose(128,255)},
+               {0,choose(256,16#D7FF)},
+               {0,choose(16#E000,16#FFFD)}]).

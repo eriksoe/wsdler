@@ -1,0 +1,11 @@
+
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+	xmlns:tgn="http://www.example.org"
+        targetNamespace="http://www.example.org">
+  <element name="tag" type="tgn:Str_3_Ds"/>
+  <simpleType name="Str_3_Ds">
+    <restriction base="string">
+      <pattern value="\d{3}"/>
+    </restriction>
+  </simpleType>
+</schema>

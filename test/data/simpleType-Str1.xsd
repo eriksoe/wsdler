@@ -1,0 +1,9 @@
+
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        targetNamespace="http://www.example.org"
+	xmlns:tgn="http://www.example.org">
+  <element name="tag" type="tgn:Str1"/>
+  <simpleType name="Str1">
+    <restriction base="string"/>
+  </simpleType>
+</schema>

@@ -1,0 +1,7 @@
+
+
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        targetNamespace="http://www.example.org">
+  <element name="tag" type="integer"/>
+</schema>
+
