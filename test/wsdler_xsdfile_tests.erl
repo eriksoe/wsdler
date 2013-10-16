@@ -57,8 +57,7 @@ blacklist() ->
 %%%  XMLLint property tests  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% TODO, make this test work.  Note the black-list
-%%prop_Integer  () -> xmllint("xsd-integer-in-element.xsd").
+prop_Integer  () -> xmllint("xsd-integer-in-element.xsd").
 
 prop_basicElement() -> xmllint("xsd-integer-in-element.xsd").
 
@@ -95,5 +94,6 @@ xmllintCall(Name, Input) ->
     end.
 
 %% Helper method for interactive shell development
-run() ->
-    triq:module(?MODULE).
+property_test_() ->
+    {timeout, 10000,
+     fun()-> triq:module(?MODULE) end}.
