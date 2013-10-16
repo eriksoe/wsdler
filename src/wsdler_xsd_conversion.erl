@@ -49,20 +49,20 @@ convert_elements(Elements,State) ->
 convert_element({{xsd,"element"}, Attrs, Children}, State) ->
     ElemName = attribute("name",Attrs,undefined),
     TypeName = attribute("type",Attrs,undefined),
-    io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
+%%    io:format(user, "DB| convert_element: ~p\n", [{Attrs,Children}]),
     %% TODO: Handle <attribute> children.
     {Type,Name,Constraints} =
         case {TypeName,Children} of
             {undefined, []} ->
-                io:format(user, "DB| convert_element case 1: ~p\n", [{}]),
+%%                io:format(user, "DB| convert_element case 1: ~p\n", [{}]),
                 {{xsd,"anyType"}, ElemName, []};
             {undefined, [{ref, {xsd,Tag}, Ref,_} | Constraints0]}
               when Tag=:="simpleType";
                    Tag=:="complexType" ->
-                io:format(user, "DB| convert_element case 2: ~p\n", [{}]),
+%%                io:format(user, "DB| convert_element case 2: ~p\n", [{}]),
                 {Ref, ElemName, Constraints0};
             _ when TypeName /= undefined ->
-                io:format(user, "DB| convert_element case 4: ~p\n", [{}]),
+%%                io:format(user, "DB| convert_element case 4: ~p\n", [{}]),
                 {TypeName, ElemName, Children}
         end,
     %% TODO: Handle constraints.
@@ -73,7 +73,7 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
 %%%======================================================================
 
 convert_groups(Groups,State) ->
-    io:format(user, "DB| convert_groups: ~p\n", [dict:to_list(Groups)]),
+%%    io:format(user, "DB| convert_groups: ~p\n", [dict:to_list(Groups)]),
     dict:map(fun (_K,V)->convert_group(V,State) end, Groups).
 
 %%%%%% <group> children: %%%%%%%%%%%%%%%%%%%%
@@ -314,7 +314,7 @@ is_attributeish({{xsd, Tag},_,_}) ->
 %%%======================================================================
 
 convert_attributes(Attributes, State) ->
-    io:format(user, "DB| convert_attributes: ~p\n", [dict:to_list(Attributes)]),
+%%    io:format(user, "DB| convert_attributes: ~p\n", [dict:to_list(Attributes)]),
     dict:map(fun (_K,V)->convert_attribute(V,State) end, Attributes).
 
 %%%%%% <attribute> children: %%%%%%%%%%%%%%%%%%%%

@@ -1,5 +1,7 @@
 -module(wsdler_simpletypes_test).
 
+-export([run/0]).
+
 -include("../src/wsdler.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
@@ -29,7 +31,7 @@ simple_type_generator(BaseType) ->
 simple_type_generator(BaseType, RestrictionBody) ->
     SchemaSrc = schema(BaseType, RestrictionBody),
     {ok,Schema} = wsdler_xsd:parse_string(SchemaSrc),
-    wsdler_generators:generator(qtypename("T"), Schema).
+    wsdler_generators:generate_type(qtypename("T"), Schema).
 
 schema(BaseType, Body) ->
     "<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\""

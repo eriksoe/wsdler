@@ -47,7 +47,9 @@ blacklist() ->
       "test-xsd-39.xsd", % Missing Items
       "test-xsd-42.xsd", % Missing USAddress
 
-      "xsd-integer-in-element.xsd" % No support for element with xsd base types yet...
+      "xsd-integer-in-element.xsd", % Defines no types, so not relevant for the generic test
+
+      "test-xsd-45.xsd" % TODO
      ].
 
 
@@ -58,9 +60,14 @@ blacklist() ->
 %% TODO, make this test work.  Note the black-list
 %%prop_Integer  () -> xmllint("xsd-integer-in-element.xsd").
 
+prop_basicElement() -> xmllint("xsd-integer-in-element.xsd").
+
 prop_Str1     () -> xmllint("simpleType-Str1.xsd").
 prop_Str_3_Ds () -> xmllint("simpleType-Str_3_Ds.xsd").
 prop_StrMinMax() -> xmllint("simpleType-StrMinMax.xsd").
+
+prop_complexTypeSequence  () -> xmllint("complexType-sequence.xsd").
+prop_complexTypeElementish() -> xmllint("complexType-elementish.xsd").
 
 %%% Utils %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -73,7 +80,7 @@ xmllint(File) ->
 
 gen(Type, Filename) ->
     {ok, Schema} = wsdler_xsd:parse_file(testfile(Filename)),
-    wsdler_generators:generate({?TGN, Type}, Schema).
+    wsdler_generators:generate_root_element({?TGN, Type}, ?TGN, Schema).
 
 testfile(Name) ->
     filename:join(filename:join(filename:join(code:lib_dir(wsdler), "test"), "data"), Name).
@@ -84,7 +91,7 @@ xmllintCall(Name, Input) ->
     Cmd = "echo '"++ Input ++"' | xmllint --schema "++File++" -noout -",
     case os:cmd(Cmd) of
 	"- validates"++_ -> true;
-	_ -> false
+	Output -> io:format("xmllint: ~s", [Output]), false
     end.
 
 %% Helper method for interactive shell development

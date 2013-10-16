@@ -63,7 +63,7 @@ parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode) ->
     %%          Lift nested element/group etc. up to top-level.
 
     State1 = collect_defs_schema_node(SchemaNode),
-    debug1(State1),
+%%    debug1(State1),
 
     %% Phase 2. Handle imports/includes/redefines (handwaving).
     %%          Result: a type-dict?
@@ -82,7 +82,7 @@ parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode) ->
     %%    Check references simultaneously.
 
     Schema = wsdler_xsd_conversion:convert_to_internal_form(State2),
-    debug4(Schema),
+%%    debug4(Schema),
 
     %% 5. Make inferences.
     %%    - Simple types:

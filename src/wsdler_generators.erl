@@ -1,66 +1,77 @@
 -module(wsdler_generators).
 
--export([generator/2]).
--export([generate/2]).
+-export([generate_root_element/3]).
+-export([generate_type/2]).
 
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
-generate(ElemName, Schema) ->
-    case wsdler_xsd:lookup_element(ElemName, Schema) of
+generate_root_element(ElemName, TargetNamespace, Schema) ->
+    generate_element(ElemName, Schema, [{"xmlns", TargetNamespace}]).
+
+generate_element(ElemRef, Schema) ->
+    generate_element(ElemRef, Schema, []).
+generate_element(ElemRef, Schema, Attrs) ->
+    case wsdler_xsd:lookup_element(ElemRef, Schema) of
 	#element{name=Name, type=Type} ->
-	    case wsdler_xsd:lookup_type(Type, Schema) of
-		#complexType{} ->
-		    %% TODO: Handling of complex types.
-		    {'TODO', complexType2};
-		#simpleType{type=TypeDef} ->
-		    ?LET(BodyGen, generator(TypeDef), 
-			 "<"++Name++" xmlns=\"http://www.example.org\">"++ BodyGen ++ "</"++Name++">")
-	    end
+	    ?LET(BodyGen, generate_type(Type, Schema),
+		 lists:flatten(
+		   xml_to_iolist(
+		     xml(Name, Attrs, BodyGen))))
     end.
 
-generator(TypeID, Schema) ->
-    Type = wsdler_xsd:lookup_type(TypeID, Schema),
-    io:format(user, "DB| generator: type=~p\n", [Type]),
-    case Type of
-        #complexType{} ->
-            %% TODO: Handling of complex types.
-            {'TODO', complexType};
+generate_type({xsd, Prim}, _Schema) ->
+    generate_xsd_type(Prim);
+generate_type(Type, Schema) ->
+    case wsdler_xsd:lookup_type(Type, Schema) of
+        #complexType{content=T} ->
+	    generate_complexType(T, Schema);
         #simpleType{type=TypeDef} ->
-            generator(TypeDef)
+            generate_simpleType(TypeDef)
     end.
 
-%% generator(#element{name=ElmName, type=Type}, WSDL) ->
-%%     make_element(ElmName, [], generator(Type, WSDL));
-%% generator(#simpleType{type={named,TypeName}},
-%%           #wsdl{typedict=TypeDict}=WSDL) ->
-%%     TypeDef = dict:fetch(TypeName, TypeDict),
-%%     generator(TypeDef,WSDL);
-%% generator(#simpleType{type=Type},WSDL) ->
-%%     generator(Type,WSDL);
-%% generator(Type,_) ->
-%%     generator(Type).
-
-make_element({NS,Name}, Attrs, Content) ->
-    {Name, [{'xmlns',NS} | Attrs], Content}.
-
-generator(#restriction{enumeration=Enum}) when Enum /= [] ->
-    oneof([return(X) || X <- Enum]);
-generator(#restriction{base={xsd,"boolean"}}) ->
+%% TODO, to simplistic! Improve!
+generate_xsd_type("string") ->
+    string_gen(1, undefined);
+generate_xsd_type("boolean") ->
     oneof(["false","true","0","1"]);
-generator(#restriction{base="dateTime"}) ->
+generate_xsd_type("integer") ->
+    ?LET(I, choose(0,1000),
+	 integer_to_list(I)).
+
+generate_complexType(F=#simpleContentRestriction{}, _Schema) -> {todo, F};
+generate_complexType(F=#simpleContentExtension{}, _Schema) -> {todo, F};
+generate_complexType(F=#complexContentExtension{}, _Schema) -> {todo, F};
+generate_complexType(#complexContentRestriction{base={xsd, "anyType"}, children=Element_ish, attributes=[]}, Schema) ->
+    generate_element_ish(Element_ish, Schema).
+
+generate_element_ish(#sequence{content=Elems}, Schema) ->
+    [generate_element_ish(Elem, Schema) || Elem <- Elems];
+generate_element_ish(#choice{content=Choices}, Schema) ->
+    generate_element_ish(lists:nth(random:uniform(length(Choices)),
+				   Choices),
+			 Schema);
+generate_element_ish(#element_instantiation{element_ref=ElemRef, minOccurs=_, maxOccurs=_}, Schema) ->
+    %%TODO handle min max occurs
+    generate_element(ElemRef, Schema).
+
+generate_simpleType(#restriction{enumeration=Enum}) when Enum /= [] ->
+    oneof([return(X) || X <- Enum]);
+generate_simpleType(#restriction{base={xsd,"boolean"}}) ->
+    oneof(["false","true","0","1"]);
+generate_simpleType(#restriction{base="dateTime"}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern
     ?LET(X, resize(5,real()),
          format_years_from_now_as_datetime(math:pow(X,7)));
-generator(#restriction{base={xsd, "string"}, pattern=Pattern}) when Pattern /= undefined ->
+generate_simpleType(#restriction{base={xsd, "string"}, pattern=Pattern}) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
     Regex = wsdler_regex:from_string(Pattern),
     wsdler_regex:to_generator(Regex);
-generator(#restriction{base={xsd,"string"}, minLength=MinLen, maxLength=MaxLen}) ->
+generate_simpleType(#restriction{base={xsd,"string"}, minLength=MinLen, maxLength=MaxLen}) ->
     string_gen(MinLen, MaxLen);
-generator(#simpleUnionType{memberTypes=Types}) ->
-    oneof([generator(T) || T <- Types]);
-generator(_Other) ->
+generate_simpleType(#simpleUnionType{memberTypes=Types}) ->
+    oneof([generate_simpleType(T) || T <- Types]);
+generate_simpleType(_Other) ->
     {'TODO',_Other}.
 
 %%%========== DATETIME Generation ========================================
@@ -106,7 +117,27 @@ string_gen(MinLen0, MaxLen) ->
 
 char_gen() ->
     frequency([{20,char()},
-	       %% TODO, reenable these!
+	       %% TODO, xmllint complains for the lines below:
+	       %%   -:1: parser error : Input is not proper UTF-8, indicate encoding !
                {0,choose(128,255)},
                {0,choose(256,16#D7FF)},
                {0,choose(16#E000,16#FFFD)}]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%  XML gengeration  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+xml(Tag, Attrs, Content) ->
+    {Tag, Attrs, Content}.
+
+xml_to_iolist({Tag, Attrs, []}) ->
+    ["<", Tag, attrs_to_iolist(Attrs), "/>"];
+xml_to_iolist({Tag, Attrs, Content}) ->
+    ["<", Tag, attrs_to_iolist(Attrs), ">", [xml_to_iolist(Node) || Node <- Content], "</", Tag, ">"];
+xml_to_iolist(Data) ->
+    Data.
+
+attrs_to_iolist(Attrs) ->
+    [[" ", Attr, "=", "\"", Val, "\""] || {Attr, Val} <- Attrs].
+
