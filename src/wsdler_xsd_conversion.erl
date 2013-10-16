@@ -261,12 +261,12 @@ process_element_or_groupish(Node, State) ->
     process_groupish(Node, State).
 
 process_element({ref, {xsd, "element"},Ref,Attrs}, State) ->
-    MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 1),
+    MinOccurs = attribute("minOccurs", Attrs, fun erlang:list_to_integer/1, 0),
     MaxOccurs = attribute("maxOccurs", Attrs,
                           fun ("unbounded")->unbounded;
                               (V) -> list_to_integer(V)
                           end,
-                          unbounded),
+                          1),
     #element_instantiation{element_ref=check_element_existence(Ref,State),
                            minOccurs=MinOccurs,
                            maxOccurs=MaxOccurs}.
