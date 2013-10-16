@@ -51,9 +51,9 @@ generate_element_ish(#choice{content=Choices}, Schema) ->
     generate_element_ish(lists:nth(random:uniform(length(Choices)),
 				   Choices),
 			 Schema);
-generate_element_ish(#element_instantiation{element_ref=ElemRef, minOccurs=_, maxOccurs=_}, Schema) ->
-    %%TODO handle min max occurs
-    generate_element(ElemRef, Schema).
+generate_element_ish(#element_instantiation{element_ref=ElemRef, minOccurs=Min, maxOccurs=Max}, Schema) ->
+    Optional = case Max of unbounded -> 10; _ -> Max - Min end,
+    ?DELAY([generate_element(ElemRef, Schema) || _N <- lists:seq(1, Min+random:uniform(Optional))]).
 
 generate_simpleType(#restriction{enumeration=Enum}) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);

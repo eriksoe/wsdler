@@ -8,8 +8,8 @@
     <sequence>
       <element name="s" type="string"/>
       <choice>
-	<element name="i" type="integer"/>
-	<element name="b" type="boolean"/>
+	<element name="i" type="integer" minOccurs="3" maxOccurs="unbounded"/>
+	<element name="b" type="boolean" minOccurs="3" maxOccurs="5"/>
       </choice>
     </sequence>
   </complexType>
