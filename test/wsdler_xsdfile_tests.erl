@@ -94,6 +94,9 @@ xmllintCall(Name, Input) ->
     end.
 
 %% Helper method for interactive shell development
+run() ->
+    triq:module(?MODULE).
+
 property_test_() ->
     {timeout, 10000,
-     fun()-> triq:module(?MODULE) end}.
+     fun()-> ?assert(triq:module(?MODULE)) end}.
