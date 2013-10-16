@@ -1,7 +1,5 @@
 -module(wsdler_simpletypes_test).
 
--export([run/0]).
-
 -include("../src/wsdler.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
