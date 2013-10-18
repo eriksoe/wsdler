@@ -66,7 +66,8 @@ convert_element({{xsd,"element"}, Attrs, Children}, State) ->
                 {TypeName, ElemName, Children}
         end,
     %% TODO: Handle constraints.
-    #element{name=Name, type=check_type_existence(Type,State)}.
+    QName = {State#refcheck_state.targetNS, Name},
+    #element{name=QName, type=check_type_existence(Type,State)}.
 
 %%%======================================================================
 %%%========== Conversion of Groups   ====================================

@@ -28,7 +28,8 @@
           groups :: dict(),
           attr_groups :: dict(),
           types :: dict(),
-          type_order :: [_]
+          type_order :: [_],
+          targetNS :: string()
          }).
 
 -endif.

@@ -252,6 +252,7 @@ build_type_order(#collect_state{}=State) ->
                groups      = State#collect_state.groups,
                attr_groups = State#collect_state.attr_groups,
                types       = State#collect_state.types,
+               targetNS    = State#collect_state.targetNS,
                type_order  = TypeOrder
               }.
 
