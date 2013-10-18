@@ -50,7 +50,7 @@ generate_xsd_type("string") ->
 generate_xsd_type("boolean") ->
     oneof(["false","true","0","1"]);
 generate_xsd_type("integer") ->
-    ?LET(I, choose(0,1000),
+    ?LET(I, int(),
 	 integer_to_list(I)).
 
 generate_complexType(F=#simpleContentRestriction{}, _Schema) -> {todo, F};
@@ -134,7 +134,7 @@ char_gen() ->
     frequency([{20,char()},
 	       %% TODO, xmllint complains for the lines below:
 	       %%   -:1: parser error : Input is not proper UTF-8, indicate encoding !
-               {0,choose(128,255)},
-               {0,choose(256,16#D7FF)},
-               {0,choose(16#E000,16#FFFD)}]).
+               {5,choose(128,255)},
+               {2,choose(256,16#D7FF)},
+               {1,choose(16#E000,16#FFFD)}]).
 
