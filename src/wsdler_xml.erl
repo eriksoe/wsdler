@@ -101,7 +101,7 @@ unparse({{NS,Tag}, Attrs, Children}=RootNode) ->
 
 unparse_node({Tag, Attrs, Children}, NSTab) ->
     TagQN = qnamify(Tag, NSTab),
-    ["<", unparse_qname(TagQN), unparse_node2(TagQN, Attrs, Children, NSTab)].
+    ["<", unparse_tag_qname(TagQN), unparse_node2(TagQN, Attrs, Children, NSTab)].
 
 unparse_node2(Tag, Attrs, Children, NSTab) ->
     [attrs_to_iolist(Attrs, NSTab)
@@ -122,11 +122,14 @@ unparse_content(Content, _NSTab) when is_list(Content);
     Content.
 
 attrs_to_iolist(Attrs, NSTab) ->
-    [[" ", unparse_qname(qnamify(Attr, NSTab)), "=", "\"", Val, "\""]
+    [[" ", unparse_attr_qname(qnamify(Attr, NSTab)), "=", "\"", Val, "\""]
      || {Attr, Val} <- Attrs].
 
-unparse_qname({undefined,Name}) -> Name;
-unparse_qname({NSPrefix,Name}) -> [NSPrefix, ":", Name].
+unparse_tag_qname({default_ns,Name}) -> Name;
+unparse_tag_qname({NSPrefix,Name}) -> [NSPrefix, ":", Name].
+
+unparse_attr_qname({undefined,Name}) -> Name;
+unparse_attr_qname({NSPrefix,Name}) -> [NSPrefix, ":", Name].
 
 qnamify({NS,Name}, NSTab) -> {qnamify_ns(NS, NSTab), Name}.
 
@@ -137,12 +140,12 @@ qnamify_ns(NS, NSTab) ->
         xml ->
             "xml"; % Predefined.
         URI ->
-            case ets:lookup(URI, NSTab) of
+            case ets:lookup(NSTab, URI) of
                 [{_,Prefix}] ->
                     Prefix;
                 [] ->
                     Prefix = "ns"++integer_to_list(ets:info(NSTab,size)),
-                    ok = ets:insert({URI,Prefix}, NSTab),
+                    ok = ets:insert(NSTab, {URI,Prefix}),
                     Prefix
             end
     end.
@@ -153,12 +156,15 @@ qnamify_ns(NS, NSTab) ->
 
 unparse1_test() ->
     XML = lists:flatten(?MODULE:unparse({{"uri","tag"},[],[]})),
-    io:format(user, "unparse1_test: ~p\n", [XML]),
     ?assertEqual("<tag xmlns=\"uri\"/>", XML).
 
 unparse2_test() ->
     XML = lists:flatten(?MODULE:unparse({{xsd,"tag"},[],[]})),
-    io:format(user, "unparse2_test: ~p\n", [XML]),
     ?assertEqual("<tag xmlns=\""++?XSD_NS++"\"/>", XML).
+
+unparse_children_test() ->
+    XML = (catch lists:flatten(?MODULE:unparse({{"uri","outer"},[],[{{"uri","inner"},[],[]}]}))),
+    io:format(user, "unparse_children_test: ~p\n", [XML]),
+    ?assertEqual("<outer xmlns=\"uri\"><inner/></outer>", XML).
 
 -endif.
