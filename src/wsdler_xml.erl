@@ -2,6 +2,7 @@
 
 -export([parse_file/1, parse_string/1, erlsom_options/0]).
 -export([attribute/2, attribute/3, list_attribute/2, attribute/4]).
+-export([unparse/1]).
 
 %%% Purpose: XML handling - parsing and unparsing of XML.
 %%%
@@ -60,6 +61,11 @@ symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
 symbolic_name(Name, _ , "xml") -> {xml,  Name}; % Predefined to http://www.w3.org/XML/1998/namespace
 symbolic_name(Name, NS,       _) -> {NS, Name}.
 
+uri_for_namespace(xsd)  -> ?XSD_NS;
+uri_for_namespace(wsdl) -> ?WSDL_NS;
+uri_for_namespace(soap) -> ?SOAP_NS;
+uri_for_namespace(xml)  -> xml;
+uri_for_namespace(URI) when is_list(URI) -> URI.
 
 qnamePred({attribute, {xsd, "element"},     {[],"ref"}}) -> true;
 qnamePred({attribute, {xsd, "element"},     {[],"type"}}) -> true;
@@ -69,3 +75,73 @@ qnamePred({attribute, {xsd, "group"},       {[],"ref"}}) -> true;
 qnamePred({attribute, {xsd, "restriction"}, {[],"base"}}) -> true;
 qnamePred({attribute, {xsd, "extension"  }, {[],"base"}}) -> true;
 qnamePred(_) -> false.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%  XML generation  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Unparsing of root node.
+unparse({{NS,Tag}, Attrs, Children}=RootNode) ->
+    NSTab = ets:new(ns_mapping, [set]),
+    try
+        true = ets:insert(NSTab, {NS,default_ns}),
+        true = ets:insert(NSTab, {xml,"xml"}),
+        XML0 = unparse_node2(Tag, Attrs, Children, NSTab),
+        NSAttrs = [case NS of
+                       default_ns -> {{undefined,"xmlns"},URI};
+                       _          -> {{"xmlns",NS}, URI}
+                   end
+                   || {URI,NS} <- ets:tab2list(NSTab), URI /= xml],
+        XMLNSAttrs = attrs_to_iolist(NSAttrs, NSTab),
+        ["<", Tag, XMLNSAttrs | XML0]
+    after
+        ets:delete(NSTab)
+    end.
+
+unparse_node({Tag, Attrs, Children}, NSTab) ->
+    TagQN = qnamify(Tag, NSTab),
+    ["<", unparse_qname(TagQN), unparse_node2(TagQN, Attrs, Children, NSTab)].
+
+unparse_node2(Tag, Attrs, Children, NSTab) ->
+    [attrs_to_iolist(Attrs, NSTab)
+     |
+     case Children of
+         [] -> "/>";
+         _ ->
+             [">",
+              [unparse_content(C, NSTab) || C <- Children],
+              "</", Tag, ">"]
+     end].
+
+unparse_content({_,_,_}=Node, NSTab) ->
+    unparse_node(Node, NSTab);
+unparse_content(Content, _NSTab) when is_list(Content);
+                                      is_binary(Content) ->
+    %% TODO: Escape this string!
+    Content.
+
+attrs_to_iolist(Attrs, NSTab) ->
+    [[" ", unparse_qname(qnamify(Attr, NSTab)), "=", "\"", Val, "\""]
+     || {Attr, Val} <- Attrs].
+
+unparse_qname({undefined,Name}) -> Name;
+unparse_qname({NSPrefix,Name}) -> [NSPrefix, ":", Name].
+
+qnamify({NS,Name}, NSTab) -> {qnamify_ns(NS, NSTab), Name}.
+
+qnamify_ns("", _NSTab) -> undefined;
+qnamify_ns(NS, NSTab) ->
+    case uri_for_namespace(NS) of
+        xml ->
+            "xml"; % Predefined.
+        URI ->
+            case ets:lookup(URI, NSTab) of
+                [{_,Prefix}] ->
+                    Prefix;
+                [] ->
+                    Prefix = "ns"++integer_to_list(ets:info(NSTab,size)),
+                    ok = ets:insert({URI,Prefix}, NSTab),
+                    Prefix
+            end
+    end.

@@ -57,29 +57,30 @@ blacklist() ->
 %%%  XMLLint property tests  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-prop_Integer  () -> xmllint("xsd-integer-in-element.xsd").
+-define(TGN, "http://www.example.org").
 
-prop_basicElement() -> xmllint("xsd-integer-in-element.xsd").
+prop_Integer  () -> xmllint("xsd-integer-in-element.xsd",
+                            {?TGN,"C"}).
 
-prop_Str1     () -> xmllint("simpleType-Str1.xsd").
-prop_Str_3_Ds () -> xmllint("simpleType-Str_3_Ds.xsd").
-prop_StrMinMax() -> xmllint("simpleType-StrMinMax.xsd").
+prop_basicElement() -> xmllint("xsd-integer-in-element.xsd",
+                               {?TGN,"C"}).
 
-prop_complexTypeSequence  () -> xmllint("complexType-sequence.xsd").
-prop_complexTypeElementish() -> xmllint("complexType-elementish.xsd").
+prop_Str1     () -> xmllint("simpleType-Str1.xsd", {?TGN, "Str1"}).
+prop_Str_3_Ds () -> xmllint("simpleType-Str_3_Ds.xsd", {?TGN, "Str_3_Ds"}).
+prop_StrMinMax() -> xmllint("simpleType-StrMinMax.xsd", {?TGN, "StrMinMax"}).
+
+prop_complexTypeSequence  () -> xmllint("complexType-sequence.xsd", {?TGN,"C"}).
+prop_complexTypeElementish() -> xmllint("complexType-elementish.xsd", {?TGN,"C"}).
 
 %%% Utils %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(TAG, "tag").
--define(TGN, "http://www.example.org").
-
-xmllint(File) ->
-    ?FORALL(X, gen(?TAG, File),
+xmllint(File, Tag) ->
+    ?FORALL(X, gen(Tag, File),
 	    xmllintCall(File, X)).
 
-gen(Type, Filename) ->
+gen(TypeName, Filename) ->
     {ok, Schema} = wsdler_xsd:parse_file(testfile(Filename)),
-    wsdler_generators:generate_root_element({?TGN, Type}, ?TGN, Schema).
+    wsdler_generators:generate_root_element(TypeName, Schema).
 
 testfile(Name) ->
     filename:join(filename:join(filename:join(code:lib_dir(wsdler), "test"), "data"), Name).
@@ -99,4 +100,4 @@ run() ->
 
 property_test_() ->
     {timeout, 10000,
-     fun()-> ?assert(triq:module(?MODULE)) end}.
+     fun()-> {ok,_} = (catch {ok,?assert(triq:module(?MODULE))}) end}.

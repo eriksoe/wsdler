@@ -1,13 +1,16 @@
 -module(wsdler_generators).
 
--export([generate_root_element/3]).
+-export([generate_root_element/2]).
 -export([generate_type/2]).
 
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
-generate_root_element(ElemName, TargetNamespace, Schema) ->
-    generate_element(ElemName, Schema, [{"xmlns", TargetNamespace}]).
+generate_root_element(TypeName, Schema) ->
+    ?LET(Tree,
+         generate_type(TypeName, Schema),
+         lists:flatten(
+           wsdler_xml:unparse(Tree))).
 
 generate_element(ElemRef, Schema) ->
     generate_element(ElemRef, Schema, []).
@@ -16,8 +19,9 @@ generate_element(ElemRef, Schema, Attrs) ->
 	#element{name=Name, type=Type} ->
 	    ?LET(BodyGen, generate_type(Type, Schema),
 		 lists:flatten(
-		   xml_to_iolist(
-		     xml(Name, Attrs, BodyGen))))
+                   wsdler_xml:unparse({Name,Attrs,BodyGen})))
+		   %% xml_to_iolist(
+		   %%   xml(Name, Attrs, BodyGen))))
     end.
 
 generate_type({xsd, Prim}, _Schema) ->
@@ -122,22 +126,4 @@ char_gen() ->
                {0,choose(128,255)},
                {0,choose(256,16#D7FF)},
                {0,choose(16#E000,16#FFFD)}]).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%  XML gengeration  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-xml(Tag, Attrs, Content) ->
-    {Tag, Attrs, Content}.
-
-xml_to_iolist({Tag, Attrs, []}) ->
-    ["<", Tag, attrs_to_iolist(Attrs), "/>"];
-xml_to_iolist({Tag, Attrs, Content}) ->
-    ["<", Tag, attrs_to_iolist(Attrs), ">", [xml_to_iolist(Node) || Node <- Content], "</", Tag, ">"];
-xml_to_iolist(Data) ->
-    Data.
-
-attrs_to_iolist(Attrs) ->
-    [[" ", Attr, "=", "\"", Val, "\""] || {Attr, Val} <- Attrs].
 
