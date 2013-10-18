@@ -57,5 +57,6 @@ process_defs_children({{wsdl, "service"}, _Attrs, _Children}, Acc) ->
 %%     [service|Acc].
 
 process_types_children({{xsd,"schema"}, _, _}=SchemaNode, AccDict) ->
-    Types = wsdler_xsd:parse_schema_node(SchemaNode),
+    Types = wsdler_xsd:parse_schema_node(SchemaNode,
+                                         fun (X) -> error({cannot_resolve_schema, X}) end),
     wsdler_xsd:merge_schemas(Types,AccDict).
