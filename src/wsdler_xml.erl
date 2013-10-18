@@ -137,15 +137,15 @@ qnamify_ns("", _NSTab) -> undefined;
 qnamify_ns(undefined, _NSTab) -> undefined;
 qnamify_ns(NS, NSTab) ->
     case uri_for_namespace(NS) of
-        xml ->
-            "xml"; % Predefined.
+        xml     -> "xml"; % Predefined.
+        "xmlns" -> "xmlns";
         URI ->
             case ets:lookup(NSTab, URI) of
                 [{_,Prefix}] ->
                     Prefix;
                 [] ->
                     Prefix = "ns"++integer_to_list(ets:info(NSTab,size)),
-                    ok = ets:insert(NSTab, {URI,Prefix}),
+                    true = ets:insert(NSTab, {URI,Prefix}),
                     Prefix
             end
     end.
@@ -164,7 +164,10 @@ unparse2_test() ->
 
 unparse_children_test() ->
     XML = (catch lists:flatten(?MODULE:unparse({{"uri","outer"},[],[{{"uri","inner"},[],[]}]}))),
-    io:format(user, "unparse_children_test: ~p\n", [XML]),
     ?assertEqual("<outer xmlns=\"uri\"><inner/></outer>", XML).
+
+unparse_children2_test() ->
+    XML = (catch lists:flatten(?MODULE:unparse({{"uri1","outer"},[],[{{"uri2","inner"},[],[]}]}))),
+    ?assertEqual("<outer xmlns=\"uri1\" xmlns:ns2=\"uri2\"><ns2:inner/></outer>", XML).
 
 -endif.
