@@ -101,7 +101,8 @@ unparse({{NS,Tag}, Attrs, Children}=RootNode) ->
 
 unparse_node({Tag, Attrs, Children}, NSTab) ->
     TagQN = qnamify(Tag, NSTab),
-    ["<", unparse_tag_qname(TagQN), unparse_node2(TagQN, Attrs, Children, NSTab)].
+    TagStr = unparse_tag_qname(TagQN),
+    ["<", TagStr, unparse_node2(TagStr, Attrs, Children, NSTab)].
 
 unparse_node2(Tag, Attrs, Children, NSTab) ->
     [attrs_to_iolist(Attrs, NSTab)
@@ -169,5 +170,9 @@ unparse_children_test() ->
 unparse_children2_test() ->
     XML = (catch lists:flatten(?MODULE:unparse({{"uri1","outer"},[],[{{"uri2","inner"},[],[]}]}))),
     ?assertEqual("<outer xmlns=\"uri1\" xmlns:ns2=\"uri2\"><ns2:inner/></outer>", XML).
+
+unparse_children3_test() ->
+    XML = (catch lists:flatten(?MODULE:unparse({{"uri1","outer"},[],[{{"uri2","inner"},[],[{{"uri1","inner"},[],[]}]}]}))),
+    ?assertEqual("<outer xmlns=\"uri1\" xmlns:ns2=\"uri2\"><ns2:inner><inner/></ns2:inner></outer>", XML).
 
 -endif.
