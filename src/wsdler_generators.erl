@@ -17,8 +17,12 @@ generate_element(ElemRef, Schema) ->
 generate_element(ElemRef, Schema, Attrs) ->
     case wsdler_xsd:lookup_element(ElemRef, Schema) of
 	#element{name=Name, type=Type} ->
+            Contents = case generate_type0(Type, Schema) of
+                           {simple, Contents0} -> [Contents0];
+                           {complex, Contents0} -> Contents0
+                       end,
             %% TODO: Handle Attrs!
-            {return(Name), [], [generate_type(Type, Schema)]}
+            {return(Name), [], Contents}
 	    %% ?LET(BodyGen, generate_type(Type, Schema),
 	    %%      lists:flatten(
             %%        wsdler_xml:unparse({Name,Attrs,BodyGen})))
@@ -26,14 +30,18 @@ generate_element(ElemRef, Schema, Attrs) ->
 		   %%   xml(Name, Attrs, BodyGen))))
     end.
 
-generate_type({xsd, Prim}, _Schema) ->
-    generate_xsd_type(Prim);
 generate_type(Type, Schema) ->
+    {_,Value} = generate_type0(Type,Schema),
+    Value.
+
+generate_type0({xsd, Prim}, _Schema) ->
+    {simple, generate_xsd_type(Prim)};
+generate_type0(Type, Schema) ->
     case wsdler_xsd:lookup_type(Type, Schema) of
         #complexType{content=T} ->
-	    generate_complexType(T, Schema);
+	    {complex, generate_complexType(T, Schema)};
         #simpleType{type=TypeDef} ->
-            generate_simpleType(TypeDef)
+            {simple,  generate_simpleType(TypeDef)}
     end.
 
 %% TODO, to simplistic! Improve!
@@ -52,7 +60,8 @@ generate_complexType(#complexContentRestriction{base={xsd, "anyType"}, children=
     generate_element_ish(Element_ish, Schema).
 
 generate_element_ish(#sequence{content=Elems}, Schema) ->
-    [generate_element_ish(Elem, Schema) || Elem <- Elems];
+    ?LETSHRINK(Groups,[generate_element_ish(Elem, Schema) || Elem <- Elems],
+               lists:concat(Groups));
 generate_element_ish(#choice{content=Choices}, Schema) ->
     generate_element_ish(lists:nth(random:uniform(length(Choices)),
 				   Choices),
