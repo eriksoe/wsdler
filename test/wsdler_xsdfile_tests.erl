@@ -12,16 +12,27 @@ xsdfiles_test_() ->
                  || X <- lists:sort(DataFiles0),
                     lists:suffix(".xsd",X),
                     not lists:member(X, blacklist())],
-    [{"Schema file "++X, fun()->{ok,_}=(catch {ok,one_xsd_file(X)}) end}
+    [{"Schema file "++X++" (parse)",
+      fun()->{ok,_}=(catch {ok,parse_one_xsd_file(X)}) end}
+     || X <- DataFiles],
+    [{"Schema file "++X++" (parse-gen-xmllint)",
+      fun()->{ok,_}=(catch {ok,lint_one_xsd_file(X)}) end}
      || X <- DataFiles].
 
-one_xsd_file(Filename) ->
+parse_one_xsd_file(Filename) ->
     {ok, Schema} = wsdler_xsd:parse_file(Filename),
     TypeNames = [TN || {{_,TN}, _} <- wsdler_xsd:schema_to_type_list(Schema)],
     ?assertMatch([_|_], TypeNames),
     %% TODO: Generate samples for each type...
     TypeNames.
 
+lint_one_xsd_file(Filename) ->
+    {ok, Schema} = wsdler_xsd:parse_file(Filename),
+    ElemNames = [EN || {EN, _} <- wsdler_xsd:schema_to_element_list(Schema),
+                not is_reference(EN)],
+    io:format(user, "DB| lint_one_xsd_file: ElemNames=~p\n", [ElemNames]),
+    [?assert(triq:check(xmllint(Filename, EN)))
+     || EN <- ElemNames].
 
 blacklist() ->
     %% These are test XSD files which are at present not valid:
@@ -46,8 +57,6 @@ blacklist() ->
       "test-xsd-38.xsd", % Importing type "SKU"
       "test-xsd-39.xsd", % Missing Items
       "test-xsd-42.xsd", % Missing USAddress
-
-      "xsd-integer-in-element.xsd", % Defines no types, so not relevant for the generic test
 
       "test-xsd-45.xsd" % TODO
      ].
@@ -89,11 +98,14 @@ testfile(Name) ->
 
 %% TODO, increase performance of the xmllint validation
 xmllintCall(Name, Input) ->
-    File = testfile(Name),
-    Cmd = "echo '"++ Input ++"' | xmllint --schema "++File++" -noout -",
-    case os:cmd(Cmd) of
-	"- validates"++_ -> true;
-	Output -> io:format("xmllint: ~s", [Output]), false
+    TempFile = "/tmp/wsdler-test.xml",
+    ok = file:write_file(TempFile, unicode:characters_to_binary(Input, utf8)),
+    SchemaFile = testfile(Name),
+    Cmd = "xmllint --schema "++SchemaFile++" -noout "++TempFile,
+    LintResult=os:cmd(Cmd),
+    case LintResult =:= (TempFile++" validates\n") of
+	true -> true;
+	false -> io:format(user,"xmllint complains: ~s", [LintResult]), false
     end.
 
 %% Helper method for interactive shell development

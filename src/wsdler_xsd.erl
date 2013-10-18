@@ -4,7 +4,7 @@
 %%% TODO: expand this description...
 
 -export([parse_file/1, parse_string/1, parse_schema_node/1]).
--export([empty_schema/0, schema_to_type_list/1, merge_schemas/2]).
+-export([empty_schema/0, schema_to_type_list/1, schema_to_element_list/1, merge_schemas/2]).
 -export([lookup_type/2, lookup_element/2]).
 
 -include("wsdler.hrl").
@@ -31,6 +31,9 @@ merge_schemas(TypeDict1, TypeDict2) ->
 
 schema_to_type_list(#schema{types=Types}) ->
     dict:to_list(Types).
+
+schema_to_element_list(#schema{elements=Elements}) ->
+    dict:to_list(Elements).
 
 lookup_type(TypeID, #schema{types=Types}) ->
     dict:fetch(TypeID, Types).
