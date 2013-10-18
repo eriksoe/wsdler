@@ -58,19 +58,20 @@ blacklist() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(TGN, "http://www.example.org").
+-define(TAG, "tag").
 
 prop_Integer  () -> xmllint("xsd-integer-in-element.xsd",
-                            {?TGN,"C"}).
+                            {?TGN,?TAG}).
 
 prop_basicElement() -> xmllint("xsd-integer-in-element.xsd",
-                               {?TGN,"C"}).
+                               {?TGN,?TAG}).
 
-prop_Str1     () -> xmllint("simpleType-Str1.xsd", {?TGN, "Str1"}).
-prop_Str_3_Ds () -> xmllint("simpleType-Str_3_Ds.xsd", {?TGN, "Str_3_Ds"}).
-prop_StrMinMax() -> xmllint("simpleType-StrMinMax.xsd", {?TGN, "StrMinMax"}).
+prop_Str1     () -> xmllint("simpleType-Str1.xsd", {?TGN, ?TAG}).
+prop_Str_3_Ds () -> xmllint("simpleType-Str_3_Ds.xsd", {?TGN, ?TAG}).
+prop_StrMinMax() -> xmllint("simpleType-StrMinMax.xsd", {?TGN, ?TAG}).
 
-prop_complexTypeSequence  () -> xmllint("complexType-sequence.xsd", {?TGN,"C"}).
-prop_complexTypeElementish() -> xmllint("complexType-elementish.xsd", {?TGN,"C"}).
+prop_complexTypeSequence  () -> xmllint("complexType-sequence.xsd", {?TGN,?TAG}).
+prop_complexTypeElementish() -> xmllint("complexType-elementish.xsd", {?TGN,?TAG}).
 
 %%% Utils %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -78,9 +79,10 @@ xmllint(File, Tag) ->
     ?FORALL(X, gen(Tag, File),
 	    xmllintCall(File, X)).
 
-gen(TypeName, Filename) ->
+gen(ElemName, Filename) ->
     {ok, Schema} = wsdler_xsd:parse_file(testfile(Filename)),
-    wsdler_generators:generate_root_element(TypeName, Schema).
+    %% io:format(user, "DB| sample: ~p\n", [triq_dom:sample(wsdler_generators:generate_element(ElemName, Schema))]),
+    wsdler_generators:generate_root_element(ElemName, Schema).
 
 testfile(Name) ->
     filename:join(filename:join(filename:join(code:lib_dir(wsdler), "test"), "data"), Name).

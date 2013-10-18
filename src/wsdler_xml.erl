@@ -131,6 +131,7 @@ unparse_qname({NSPrefix,Name}) -> [NSPrefix, ":", Name].
 qnamify({NS,Name}, NSTab) -> {qnamify_ns(NS, NSTab), Name}.
 
 qnamify_ns("", _NSTab) -> undefined;
+qnamify_ns(undefined, _NSTab) -> undefined;
 qnamify_ns(NS, NSTab) ->
     case uri_for_namespace(NS) of
         xml ->

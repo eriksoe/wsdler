@@ -1,14 +1,14 @@
 -module(wsdler_generators).
 
 -export([generate_root_element/2]).
--export([generate_type/2]).
+-export([generate_element/2, generate_type/2]).
 
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
-generate_root_element(TypeName, Schema) ->
+generate_root_element(ElemName, Schema) ->
     ?LET(Tree,
-         generate_type(TypeName, Schema),
+         generate_element(ElemName, Schema),
          lists:flatten(
            wsdler_xml:unparse(Tree))).
 
@@ -17,9 +17,11 @@ generate_element(ElemRef, Schema) ->
 generate_element(ElemRef, Schema, Attrs) ->
     case wsdler_xsd:lookup_element(ElemRef, Schema) of
 	#element{name=Name, type=Type} ->
-	    ?LET(BodyGen, generate_type(Type, Schema),
-		 lists:flatten(
-                   wsdler_xml:unparse({Name,Attrs,BodyGen})))
+            %% TODO: Handle Attrs!
+            {return(Name), [], [generate_type(Type, Schema)]}
+	    %% ?LET(BodyGen, generate_type(Type, Schema),
+	    %%      lists:flatten(
+            %%        wsdler_xml:unparse({Name,Attrs,BodyGen})))
 		   %% xml_to_iolist(
 		   %%   xml(Name, Attrs, BodyGen))))
     end.

@@ -5,6 +5,5 @@
         targetNamespace="http://www.example.org"
 	xmlns:tgn="http://www.example.org">
   <element name="tag" type="integer"/>
-  <complexType name="C"><sequence><element ref="tgn:tag"/></sequence></complexType>
 </schema>
 
