@@ -1,5 +1,6 @@
-
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:element name="TestRoot" type="SKU"/>
+
   <xsd:simpleType name="SKU">
     <xsd:restriction base="xsd:string">
       <xsd:pattern value="\d{3}-[A-Z]{2}"/>

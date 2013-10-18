@@ -1,5 +1,6 @@
-
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:element name="TestRoot" type="listOfMyIntType"/>
+
   <xsd:simpleType name="listOfMyIntType">
     <xsd:list itemType="myInteger"/>
   </xsd:simpleType>

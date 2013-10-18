@@ -16,8 +16,4 @@
       </xsd:sequence>
     </xsd:complexType>
   </xsd:element>
-
-  <xsd:complexType name="TestRoot">
-    <xsd:sequence> <xsd:element ref="letterBody"/> </xsd:sequence>
-  </xsd:complexType>
 </xsd:schema>

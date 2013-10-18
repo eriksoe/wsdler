@@ -1,5 +1,6 @@
-
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:element name="TestRoot" type="PurchaseOrderType"/>
+
   <xsd:complexType name="PurchaseOrderType">
     <xsd:sequence>
       <xsd:choice>

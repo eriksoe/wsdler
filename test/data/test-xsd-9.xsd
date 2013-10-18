@@ -9,8 +9,4 @@
       </xsd:complexContent>
     </xsd:complexType>
   </xsd:element>
-
-  <xsd:complexType name="TestRoot">
-    <xsd:sequence> <xsd:element ref="internationalPrice"/> </xsd:sequence>
-  </xsd:complexType>
 </xsd:schema>

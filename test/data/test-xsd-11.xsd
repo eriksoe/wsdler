@@ -1,7 +1,3 @@
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <xsd:element name="anything" type="xsd:anyType"/>
-
-  <xsd:complexType name="TestRoot">
-    <xsd:sequence> <xsd:element ref="anything"/> </xsd:sequence>
-  </xsd:complexType>
 </xsd:schema>

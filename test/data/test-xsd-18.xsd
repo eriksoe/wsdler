@@ -1,6 +1,6 @@
-
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <xsd:element name="item" minOccurs="0" maxOccurs="unbounded">
+<!--  <xsd:element name="item" minOccurs="0" maxOccurs="unbounded"> -->
+  <xsd:element name="item">
     <xsd:complexType>
       <xsd:sequence>
 	<xsd:element   name="productName" type="xsd:string"/>
