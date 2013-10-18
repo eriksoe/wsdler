@@ -89,8 +89,8 @@ unparse({{NS,Tag}, Attrs, Children}=RootNode) ->
         true = ets:insert(NSTab, {xml,"xml"}),
         XML0 = unparse_node2(Tag, Attrs, Children, NSTab),
         NSAttrs = [case NS of
-                       default_ns -> {{undefined,"xmlns"},URI};
-                       _          -> {{"xmlns",NS}, URI}
+                       default_ns -> {{undefined,"xmlns"},uri_for_namespace(URI)};
+                       _          -> {{"xmlns",NS}, uri_for_namespace(URI)}
                    end
                    || {URI,NS} <- ets:tab2list(NSTab), URI /= xml],
         XMLNSAttrs = attrs_to_iolist(NSAttrs, NSTab),
@@ -146,3 +146,19 @@ qnamify_ns(NS, NSTab) ->
                     Prefix
             end
     end.
+
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+unparse1_test() ->
+    XML = lists:flatten(?MODULE:unparse({{"uri","tag"},[],[]})),
+    io:format(user, "unparse1_test: ~p\n", [XML]),
+    ?assertEqual("<tag xmlns=\"uri\"/>", XML).
+
+unparse2_test() ->
+    XML = lists:flatten(?MODULE:unparse({{xsd,"tag"},[],[]})),
+    io:format(user, "unparse2_test: ~p\n", [XML]),
+    ?assertEqual("<tag xmlns=\""++?XSD_NS++"\"/>", XML).
+
+-endif.
