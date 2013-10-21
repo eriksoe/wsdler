@@ -13,24 +13,29 @@
 
 -opaque(schema() :: #schema{}).
 
+%%% Namespaces:
+-define(XML_NS, "http://www.w3.org/XML/1998/namespace").
+-define(XSD_NS, "http://www.w3.org/2001/XMLSchema").
+
 parse_file(FileName) ->
     {ok, Here} = file:get_cwd(),
     ResolverFun0 = file_resolver(Here),
-    {Tree, ResolverFun} = ResolverFun0(FileName),
+    {Tree, ResolverFun} = ResolverFun0(dummy,FileName),
     Types = parse_schema_node(Tree, ResolverFun),
     {ok, Types}.
 
 parse_string(XMLText) ->
-    parse_string(XMLText, fun (X) -> error({cannot_resolve_schema, X}) end).
+    parse_string(XMLText, fun (NS,_Path) -> error({cannot_resolve_schema, NS}) end).
 
-parse_string(XMLText, ResolverFun) when is_function(ResolverFun,1) ->
+parse_string(XMLText, ResolverFun) when is_function(ResolverFun,2) ->
     Types = parse_schema_node(xml_to_tree(XMLText), ResolverFun),
     {ok, Types}.
 
 file_resolver(FileName) ->
     OrgAbsName = filename:absname(FileName),
-    fun(X) ->
-            AbsIncluded = filename:absname_join(OrgAbsName, X),
+    fun(_NS,Path) ->
+            %% TODO: Check relativeness of path
+            AbsIncluded = filename:absname_join(OrgAbsName, Path),
             {file_to_tree(AbsIncluded), file_resolver(AbsIncluded)}
     end.
 
@@ -82,7 +87,7 @@ schema_to_readable(#schema{}=Schema) ->
 %%%   redefinable ::= (simpleType | complexType | group | attributeGroup)
 %%%
 parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode, ResolverFun)
-  when is_function(ResolverFun,1) ->
+  when is_function(ResolverFun,2) ->
     %% Phase 1. Flatten representation/gather definitions.
     %%          Lift nested element/group etc. up to top-level.
     %%          Result: a #collect_state{}.
@@ -258,14 +263,14 @@ collect_defs_action(element,"keyref") -> [].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 handle_imports(State=#collect_state{includes_etc=Directives}, ResolverFun) ->
-    ImplicitsResolverFun = fun implicit_imports_resolver/1,
+    ImplicitsResolverFun = fun implicit_imports_resolver/2,
     %% Add implicit import:
     ImplicitInclude1 = {{xsd, "import"},
-                        [{{"","namespace"}, "http://www.w3.org/XML/1998/namespace"}], []},
+                        [{{"","namespace"}, ?XML_NS}], []},
     ImplicitInclude2 = {{xsd, "import"},
-                        [{{"","namespace"}, {synthetic,"http://www.w3.org/2001/XMLSchema"}}], []},
+                        [{{"","namespace"}, {synthetic,?XSD_NS}}], []},
     Directives2 = [{ImplicitInclude1, ImplicitsResolverFun},
-                 {ImplicitInclude2, ImplicitsResolverFun}]
+                   {ImplicitInclude2, ImplicitsResolverFun}]
         ++ [{D, ResolverFun} || D <- Directives],
     handle_imports_until_fixedpoint(State, Directives2, dict:new()).
 
@@ -273,7 +278,7 @@ handle_imports_until_fixedpoint(State, [], _NSSet) ->
     State;
 handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
     case Directive of
-        {{{xsd, "import"}, Attrs, []}, _ResolverFun} ->
+        {{{xsd, "import"}, Attrs, []}, ResolverFun} ->
             Namespace = attribute("namespace", Attrs),
             case dict:is_key(Namespace, NSSet) of
                 true -> % Already imported
@@ -281,13 +286,21 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
                     State2 = State;
                 false -> % Do import
                     NSSet2 = dict:store(Namespace, dummy, NSSet),
+                    SchemaLocation = attribute("schemaLocation", Attrs, undefined),
+                    {ImportedTree,ResolverFOrImported} =
+                        ResolverFun(Namespace, SchemaLocation),
                     State2 = State % TODO - resolve and add definitions
             end
             %% TODO: Handle include & redefine
     end,
     handle_imports_until_fixedpoint(State2, Rest, NSSet2).
 
-implicit_imports_resolver('TODO') -> 'TODO'.
+implicit_imports_resolver(?XML_NS, _Path) ->
+    FileName = filename:join(code:priv_dir(wsdler), "xml.xsd"),
+    {file_to_tree(FileName), dummy};
+implicit_imports_resolver({synthetic,?XSD_NS}, _Path) ->
+    FileName = filename:join(code:priv_dir(wsdler), "xsd-types.xsd"),
+    {file_to_tree(FileName), dummy}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%% Phase 3: Establish partial order of types %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
