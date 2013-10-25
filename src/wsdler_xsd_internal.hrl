@@ -7,7 +7,8 @@
           groups :: dict(),   % of ??
           attr_groups :: dict(), % of ??
           types :: dict(),    % of typedef()
-          type_order :: [qname()]
+          type_order :: [qname()],
+          targetNS :: string()
          }).
 
 %%% State from phase 1:

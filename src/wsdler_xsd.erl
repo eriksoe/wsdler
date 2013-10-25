@@ -54,8 +54,9 @@ empty_schema() ->
 merge_schemas(TypeDict1, TypeDict2) ->
     dict:merge(no_conflicts_assumed, TypeDict1, TypeDict2).
 
-schema_to_type_list(#schema{types=Types}) ->
-    dict:to_list(Types).
+schema_to_type_list(#schema{types=Types, targetNS=TargetNS}) ->
+    [KV || KV={{KNS,_},_} <- dict:to_list(Types),
+           KNS =:= TargetNS].
 
 schema_to_element_list(#schema{elements=Elements}) ->
     dict:to_list(Elements).
@@ -284,17 +285,45 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
             case dict:is_key(Namespace, NSSet) of
                 true -> % Already imported
                     NSSet2 = NSSet,
+                    Rest2  = Rest,
                     State2 = State;
                 false -> % Do import
                     NSSet2 = dict:store(Namespace, dummy, NSSet),
                     SchemaLocation = attribute("schemaLocation", Attrs, undefined),
-                    {ImportedTree,ResolverFOrImported} =
+                    {ImportedTree,ResolverForImported} =
                         ResolverFun(Namespace, SchemaLocation),
-                    State2 = State % TODO - resolve and add definitions
+                    {State2,MoreDirectives} = check_and_merge_import(ImportedTree, ResolverForImported, Namespace, State),
+                    Rest2 = MoreDirectives ++ Rest
             end
             %% TODO: Handle include & redefine
     end,
-    handle_imports_until_fixedpoint(State2, Rest, NSSet2).
+    handle_imports_until_fixedpoint(State2, Rest2, NSSet2).
+
+check_and_merge_import(ImportedTree, ResolverForImported, ExpectedNS, State) ->
+    ImportedDefs = collect_defs_schema_node(ImportedTree),
+    check_namespace(ImportedDefs, ExpectedNS),
+    ConflictFun = fun(_,_,_) -> error({key_conflict_on_import}) end,
+    Elements = dict:merge(ConflictFun, State#collect_state.elements, ImportedDefs#collect_state.elements),
+    Attributes = dict:merge(ConflictFun, State#collect_state.attributes, ImportedDefs#collect_state.attributes),
+    Groups = dict:merge(ConflictFun, State#collect_state.groups, ImportedDefs#collect_state.groups),
+    AttrGroups = dict:merge(ConflictFun, State#collect_state.attr_groups, ImportedDefs#collect_state.attr_groups),
+    Types = dict:merge(ConflictFun, State#collect_state.types, ImportedDefs#collect_state.types),
+    Directives = ImportedDefs#collect_state.includes_etc,
+
+    MergedState =
+        State#collect_state{elements    = Elements,
+                            attributes  = Attributes,
+                            groups      = Groups,
+                            attr_groups = AttrGroups,
+                            types       = Types},
+    {MergedState,Directives}.
+
+check_namespace(#collect_state{targetNS=ActualNS}, ExpectedNS) ->
+    case ExpectedNS of
+        X when X=:=ActualNS -> ok;
+        {synthetic,X} when X=:=ActualNS -> ok;
+        _ -> error({import_has_wrong_namespace, ActualNS, ExpectedNS})
+    end.
 
 implicit_imports_resolver(?XML_NS, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xml.xsd"),
@@ -302,6 +331,10 @@ implicit_imports_resolver(?XML_NS, _Path) ->
 implicit_imports_resolver({synthetic,?XSD_NS}, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xsd-types.xsd"),
     {file_to_tree(FileName), dummy}.
+
+merge_import(ImportedTree, ResolverForImported, Namespace, State) ->
+    %% TODO!
+    State.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%% Phase 3: Establish partial order of types %%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -18,7 +18,8 @@ convert_to_internal_form(#refcheck_state{
                             groups = Groups,
                             attr_groups = AttrGroups,
                             types = Types,
-                            type_order = TypeOrder
+                            type_order = TypeOrder,
+                            targetNS = TargetNS
                            }=State) ->
     NewElements = convert_elements(Elements, State),
     NewAttributes = convert_attributes(Attributes, State),
@@ -29,7 +30,8 @@ convert_to_internal_form(#refcheck_state{
             groups=NewGroups,
             attr_groups=AttrGroups, % TODO: Convert
             types=NewTypes,
-            type_order=TypeOrder}.
+            type_order=TypeOrder,
+            targetNS=TargetNS}.
 
 %%% References in question:
 %%% - simpleType.restriction.base
@@ -104,7 +106,13 @@ convert_types(Types,State) ->
 process_simpleType({{xsd, "simpleType"}, _Attr, [Child]}, State) ->
     #simpleType{type=process_simpleType_child(Child, State)}.
 process_simpleType_child({{xsd,"restriction"}, Attrs, Children}, State) ->
-    process_restriction_children(attribute("base", Attrs), Children, State);
+    case {attribute("base", Attrs,undefined), Children} of
+        {undefined, [{ref, {xsd,"simpleType"}, Base, _} | RestChildren]} ->
+            ok;
+        {Base, _} when Base /= undefined ->
+            RestChildren = Children
+    end,
+    process_restriction_children(Base, RestChildren, State);
 process_simpleType_child({{xsd,"list"}, Attrs, Children}, State) ->
     ItemType = case {attribute("itemType", Attrs, undefined), Children} of
                    {IT, []} when IT /= undefined ->
@@ -119,8 +127,8 @@ process_simpleType_child({{xsd,"union"}, Attrs, Children}, State) ->
 			  [{named,X}
 			   || X<-list_attribute("memberTypes", Attrs)];
 		      _ ->
-			  [process_simpleType_child(X, State)
-                           || X <-Children]
+                          lists:map(fun({ref,{xsd,_},Key,_}) -> Key end,
+                                    Children)
 		  end,
     #simpleUnionType{memberTypes=MemberTypes}.
 
@@ -161,7 +169,10 @@ process_restriction_child({{xsd, "fractionDigits"}, Attrs, _Children}, #restrict
     R#restriction{fractionDigits=Value};
 process_restriction_child({{xsd, "totalDigits"}, Attrs, _Children}, #restriction{}=R) ->
     Value = attribute("value", Attrs),
-    R#restriction{totalDigits=Value}.
+    R#restriction{totalDigits=Value};
+process_restriction_child({{xsd, "whiteSpace"}, Attrs, _Children}, #restriction{}=R) ->
+    % TODO.
+    R.
 
 %%%========== ComplexType ========================================
 
