@@ -235,9 +235,10 @@ collect_defs_action(schema,"complexType") ->
     [{recurse,complexType}, {register_in_dict, #collect_state.types, "name"}];
 collect_defs_action(_,"complexType") ->
     [{recurse,complexType}, {refer_to_dict, #collect_state.types}];
-collect_defs_action(simpleType,"restriction") -> [];
+collect_defs_action(simpleType,"restriction") -> {recurse, simpleRestriction};
 collect_defs_action(simpleType,"list")       -> {recurse, list};
 collect_defs_action(simpleType,"union")      -> {recurse, union};
+collect_defs_action(simpleRestriction,_) -> [];
 collect_defs_action(complexType,"simpleContent") -> {recurse,simpleContent};
 collect_defs_action(complexType,"complexContent") -> {recurse,complexContent};
 collect_defs_action(complexType,"all") -> {recurse,group};
@@ -352,6 +353,10 @@ base_type_of({{xsd, "simpleType"}, _Attrs, Children}) ->
     case Children of
         [{{xsd,"list" }, _, _}] -> no_base;
         [{{xsd,"union"}, _, _}] -> no_base;
+        [{{xsd,"restriction"}, _Attrs2,
+          [{ref, {xsd,"simpleType"}, BaseKey, _Attrs3} | _]
+         }] ->
+            BaseKey;
         [{{xsd,"restriction"}, Attrs2, _}] ->
             wsdler_xml:attribute("base", Attrs2)
     end;
