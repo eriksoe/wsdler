@@ -18,7 +18,7 @@ generate_element(ElemRef, Schema, Attrs) ->
     case wsdler_xsd:lookup_element(ElemRef, Schema) of
 	#element{name=Name, type=Type} ->
             Contents = case generate_type0(Type, Schema) of
-                           {simple, Contents0} -> [Contents0];
+                           {simple, Contents0} -> [{text,Contents0}];
                            {complex, Contents0} -> Contents0
                        end,
             %% TODO: Handle Attrs!

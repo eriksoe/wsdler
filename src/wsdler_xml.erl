@@ -117,10 +117,12 @@ unparse_node2(Tag, Attrs, Children, NSTab) ->
 
 unparse_content({_,_,_}=Node, NSTab) ->
     unparse_node(Node, NSTab);
-unparse_content(Content, _NSTab) when is_list(Content);
-                                      is_binary(Content) ->
+unparse_content({text,Content}, _NSTab) ->
     %% TODO: Escape this string!
-    Content.
+    Content;
+unparse_content(Content, NSTab) when is_list(Content);
+                                     is_binary(Content) ->
+    unparse_content({text, Content}, NSTab).
 
 attrs_to_iolist(Attrs, NSTab) ->
     [[" ", unparse_attr_qname(qnamify(Attr, NSTab)), "=", "\"", Val, "\""]
