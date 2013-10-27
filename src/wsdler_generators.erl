@@ -86,8 +86,9 @@ generate_simpleType(#restriction{base={xsd,"string"}, minLength=MinLen, maxLengt
     string_gen(MinLen, MaxLen);
 generate_simpleType(#simpleUnionType{memberTypes=Types}) ->
     oneof([generate_simpleType(T) || T <- Types]);
-generate_simpleType(_Other) ->
-    {'TODO',_Other}.
+generate_simpleType(#simpleListType{itemType=ItemType}) ->
+    ?LET(Xs, list(generate_simpleType(ItemType)),
+         string:join(Xs, " ")).
 
 %%%========== DATETIME Generation ========================================
 
