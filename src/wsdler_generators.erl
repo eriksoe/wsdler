@@ -46,7 +46,7 @@ generate_type0(Type, Schema) ->
 
 %% TODO, to simplistic! Improve!
 generate_xsd_type("string") ->
-    string_gen(1, undefined);
+    string_gen(0, undefined);
 generate_xsd_type("boolean") ->
     oneof(["false","true","0","1"]);
 generate_xsd_type("integer") ->
