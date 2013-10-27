@@ -59,8 +59,10 @@ symbolic_name(Name, ?XSD_NS , _) -> {xsd,  Name};
 symbolic_name(Name, ?WSDL_NS, _) -> {wsdl, Name};
 symbolic_name(Name, ?SOAP_NS, _) -> {soap, Name};
 symbolic_name(Name, _ , "xml") -> {xml,  Name}; % Predefined to http://www.w3.org/XML/1998/namespace
+symbolic_name(Name, undefined, _) -> {no_ns, Name};
 symbolic_name(Name, NS,       _) -> {NS, Name}.
 
+uri_for_namespace(no_ns) -> "";
 uri_for_namespace(xsd)  -> ?XSD_NS;
 uri_for_namespace(wsdl) -> ?WSDL_NS;
 uri_for_namespace(soap) -> ?SOAP_NS;

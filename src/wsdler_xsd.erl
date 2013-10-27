@@ -139,7 +139,7 @@ debug4(Schema) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
-    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, undefined),
+    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, no_ns),
     InitState = #collect_state{elements    = dict:new(),
                                attributes  = dict:new(),
                                groups      = dict:new(),
