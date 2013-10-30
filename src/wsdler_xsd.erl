@@ -5,7 +5,7 @@
 
 -export([parse_file/1, parse_string/1, parse_string/2, parse_schema_node/2]).
 -export([empty_schema/0, schema_to_type_list/1, schema_to_element_list/1, merge_schemas/2]).
--export([lookup_type/2, lookup_element/2]).
+-export([lookup_type/2, lookup_element/2, lookup_attribute/2]).
 
 -include("wsdler.hrl").
 -include("wsdler_xsd_internal.hrl").
@@ -66,6 +66,9 @@ lookup_type(TypeID, #schema{types=Types}) ->
 
 lookup_element(ElementID, #schema{elements=Elements}) ->
     dict:fetch(ElementID, Elements).
+
+lookup_attribute(AttrID, #schema{attributes=Attrs}) ->
+    dict:fetch(AttrID, Attrs).
 
 schema_to_readable(#schema{}=Schema) ->
     {schema, [{types, dict:to_list(Schema#schema.types)},

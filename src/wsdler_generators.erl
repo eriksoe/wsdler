@@ -70,9 +70,24 @@ generate_xsd_type("integer") ->
 generate_complexType(F=#simpleContentRestriction{}, _Schema) -> {todo, F};
 generate_complexType(F=#simpleContentExtension{}, _Schema) -> {todo, F};
 generate_complexType(F=#complexContentExtension{}, _Schema) -> {todo, F};
-generate_complexType(#complexContentRestriction{base={xsd, "anyType"}, children=Element_ish, attributes=[]}, Schema) ->
-    %% TODO: Handle attributes.
-    {[], generate_element_ish(Element_ish, Schema)}.
+generate_complexType(#complexContentRestriction{base={xsd, "anyType"}, children=Element_ish, attributes=Attrs}, Schema) ->
+    {generate_attibutes(Attrs,Schema),
+     generate_element_ish(Element_ish, Schema)}.
+
+generate_attibutes(AttrInsts, Schema) ->
+    ?LET(Attrs, lists:map(fun (A) -> generate_attibute(A,Schema) end, AttrInsts),
+         lists:filter(fun(X) -> X /= absent end, Attrs)).
+
+generate_attibute({attribute_instantiation, Ref, prohibited}, _Schema) ->
+    absent;
+generate_attibute({attribute_instantiation, Ref, Use}, Schema) ->
+    #attribute{name=Name, type=TypeRef} = wsdler_xsd:lookup_attribute(Ref, Schema),
+    Gen = {return(Name), generate_simpleType(TypeRef, Schema)},
+    case Use of
+        required -> Gen;
+        optional -> oneof([absent, Gen]);
+        undefined -> Gen % TODO: Weed out when dealing with inheritance.
+    end.
 
 generate_element_ish(#sequence{content=Elems}, Schema) ->
     ?LET(Groups,[generate_element_ish(Elem, Schema) || Elem <- Elems],
@@ -84,6 +99,10 @@ generate_element_ish(#choice{content=Choices}, Schema) ->
 generate_element_ish(#element_instantiation{element_ref=ElemRef, minOccurs=Min, maxOccurs=Max}, Schema) ->
     Optional = case Max of unbounded -> 10; _ -> Max - Min end,
     ?DELAY([generate_element(ElemRef, Schema) || _N <- lists:seq(1, Min+random:uniform(Optional))]).
+
+generate_simpleType(Key, Schema) ->
+    ?LET({simple,V}, generate_type(Key,Schema),
+         V).
 
 generate_simpleType(#restriction{enumeration=Enum}) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);

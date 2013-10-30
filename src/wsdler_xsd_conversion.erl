@@ -225,7 +225,7 @@ process_complexContent_children([{{xsd,Tag}, Attributes, Children}], State)
             ElemContents = process_groupish(hd(Children), State),
             AttrChildren = tl(Children);
         false ->
-            ElemContents = [],
+            ElemContents = #sequence{content=[]},
             AttrChildren = Children
     end,
     AttrContents = lists:map(fun(Child) -> process_attribute(Child, State) end, AttrChildren),
