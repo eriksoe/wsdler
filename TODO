@@ -1,8 +1,6 @@
 ==== TO DO: ====
 XSD:
 - Type-annotations (and "dialyzer" Makefile target)
-- Handle import/include/redefine.
-  - Usable for predefined "xml" and "xsd" namespaces too.
 - Fix test sample files which are invalid or incomplete. (see blacklist)
 - Compute type properties after inheritance.
 - Handle schema attr.s elementFormDefault and attributeFormDefault
@@ -35,3 +33,4 @@ XSD:
 - Split XSD processing into multiple modules.
   - Introduce 'wsdler_xsd_conversion'.
 - Tests of XSD consistency errors. (eriksoe)
+- Handle import. (eriksoe)
