@@ -6,6 +6,14 @@
 -include("wsdler.hrl").
 -include_lib("triq/include/triq.hrl").
 
+-type string_gen() :: _.
+-type attribute_gen() :: {qname(), string_gen()}.
+-type attribute_gens() :: [attribute_gen()].
+-type simple_gen() :: string_gen().
+-type dom_node_gen() :: {text, string_gen()} | {qname(), attribute_gens(), [dom_node_gen()]}.
+-type complex_gen() :: {attribute_gens(), [dom_node_gen()]}.
+-type simple_or_complex_gen() :: {simple, simple_gen()} | {complex, complex_gen()}.
+
 generate_root_element(ElemName, Schema) ->
     ?LET(Tree,
          generate_element(ElemName, Schema),
@@ -17,17 +25,23 @@ generate_element(ElemRef, Schema) ->
 generate_element(ElemRef, Schema, Attrs) ->
     case wsdler_xsd:lookup_element(ElemRef, Schema) of
 	#element{name=Name, type=Type} ->
-            Contents = case generate_type0(Type, Schema) of
-                           {simple, Contents0} -> [{text,Contents0}];
-                           {complex, Contents0} -> Contents0
-                       end,
+            {Attributes, Contents} =
+                generate_as_complexType(Type, Schema),
             %% TODO: Handle Attrs!
-            {return(Name), [], Contents}
+            {return(Name), Attributes, Contents}
 	    %% ?LET(BodyGen, generate_type(Type, Schema),
 	    %%      lists:flatten(
             %%        wsdler_xml:unparse({Name,Attrs,BodyGen})))
 		   %% xml_to_iolist(
 		   %%   xml(Name, Attrs, BodyGen))))
+    end.
+
+-spec generate_as_complexType/2 :: (_TODO,wsdler_xsd:schema()) -> simple_or_complex_gen().
+%%% Returns {[Attr],[Content]}
+generate_as_complexType(Type,Schema) ->
+    case generate_type0(Type, Schema) of
+        {simple, Contents0} -> {[], [{text,Contents0}]};
+        {complex, AttrsAndContents} -> AttrsAndContents
     end.
 
 generate_type(Type, Schema) ->
@@ -44,7 +58,7 @@ generate_type0(Type, Schema) ->
             {simple,  generate_simpleType(TypeDef)}
     end.
 
-%% TODO, to simplistic! Improve!
+%% TODO, too simplistic! Improve!
 generate_xsd_type("string") ->
     string_gen(0, undefined);
 generate_xsd_type("boolean") ->
@@ -57,10 +71,11 @@ generate_complexType(F=#simpleContentRestriction{}, _Schema) -> {todo, F};
 generate_complexType(F=#simpleContentExtension{}, _Schema) -> {todo, F};
 generate_complexType(F=#complexContentExtension{}, _Schema) -> {todo, F};
 generate_complexType(#complexContentRestriction{base={xsd, "anyType"}, children=Element_ish, attributes=[]}, Schema) ->
-    generate_element_ish(Element_ish, Schema).
+    %% TODO: Handle attributes.
+    {[], generate_element_ish(Element_ish, Schema)}.
 
 generate_element_ish(#sequence{content=Elems}, Schema) ->
-    ?LETSHRINK(Groups,[generate_element_ish(Elem, Schema) || Elem <- Elems],
+    ?LET(Groups,[generate_element_ish(Elem, Schema) || Elem <- Elems],
                lists:concat(Groups));
 generate_element_ish(#choice{content=Choices}, Schema) ->
     generate_element_ish(lists:nth(random:uniform(length(Choices)),

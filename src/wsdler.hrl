@@ -4,7 +4,8 @@
 %%%========== Common stuff: ========================================
 -type(ncname() :: string()). %% "non-colonized" name
 -type(anyURI() :: string()).
--type(qname() :: {anyURI(), ncname()} | ncname()).
+-type(namespace() :: atom() | anyURI()).
+-type(qname() :: {namespace(), ncname()}).
 
 -type(erlsom_dom() :: {_,[_],[_]}).
 
