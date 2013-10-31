@@ -1,0 +1,27 @@
+==================== WSDL ====================
+========== Included in version 1
+========== Excluded / postponed
+
+==================== XSD ====================
+========== Included in version 1
+element,attribute
+sequence,choice,all,group
+import
+Primitive types: boolean,string,decimal,date,dateTime
+Facets: pattern,enumeration,length,minLength,maxLength,min/max,totalDigits,fractionDigits
+
+========== Excluded / postponed
+include,redefine
+Substitution groups
+"xsi:type" substitution support
+Abstract types
+Primitive types: duration, gYearMonth, gMonthDay, gYear, gMonth, gDay
+
+========== Undecided
+Primitive types: time, float, double
+attributeGroup
+Facets: whiteSpace
+
+========== Other design decisions
+Resolution of imports via catalog only
+Support for non-primitive builtins through import
