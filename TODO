@@ -14,6 +14,7 @@ XSD:
 == Milestone: xml-lint tests succeed for randomly generated schemas.
 
 ==== DOING ====
+"include" support (eriksoe)
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.

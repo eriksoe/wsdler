@@ -11,13 +11,14 @@ Primitive types: boolean,string,decimal,date,dateTime
 Facets: pattern,enumeration,length,minLength,maxLength,min/max,totalDigits,fractionDigits
 
 ========== Excluded / postponed
-include,redefine
+redefine
 Substitution groups
 "xsi:type" substitution support
 Abstract types
 Primitive types: duration, gYearMonth, gMonthDay, gYear, gMonth, gDay
 
 ========== Undecided
+include (used by DGWS schemas)
 Primitive types: time, float, double
 attributeGroup
 Facets: whiteSpace

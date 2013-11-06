@@ -34,9 +34,11 @@ parse_string(XMLText, ResolverFun) when is_function(ResolverFun,2) ->
 file_resolver(FileName) ->
     OrgAbsName = filename:absname(FileName),
     fun(_NS,Path) ->
+            io:format(user, "DB| file_resolver: resolve ~p / ~p (ns=~p)\n",
+                      [OrgAbsName, Path, _NS]),
             %% TODO: Check relativeness of path
             AbsIncluded = filename:absname_join(OrgAbsName, Path),
-            {file_to_tree(AbsIncluded), file_resolver(AbsIncluded)}
+            {file_to_tree(AbsIncluded), file_resolver(filename:dirname(AbsIncluded))}
     end.
 
 file_to_tree(FileName) ->
@@ -297,29 +299,54 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
                         ResolverFun(Namespace, SchemaLocation),
                     {State2,MoreDirectives} = check_and_merge_import(ImportedTree, ResolverForImported, Namespace, State),
                     Rest2 = MoreDirectives ++ Rest
-            end
-            %% TODO: Handle include & redefine
+            end;
+        {{{xsd, "include"}, Attrs, []}, ResolverFun} ->
+            SchemaLocation = attribute("schemaLocation", Attrs),
+            {IncludedTree,ResolverForIncluded} =
+                ResolverFun(include, SchemaLocation),
+            {State2,MoreDirectives} = check_and_merge_include(IncludedTree, ResolverForIncluded, State),
+            NSSet2 = NSSet,
+            Rest2 = MoreDirectives ++ Rest
+            %% TODO: Handle redefine
     end,
     handle_imports_until_fixedpoint(State2, Rest2, NSSet2).
 
 check_and_merge_import(ImportedTree, ResolverForImported, ExpectedNS, State) ->
     ImportedDefs = collect_defs_schema_node(ImportedTree),
     check_namespace(ImportedDefs, ExpectedNS),
-    ConflictFun = fun(_,_,_) -> error({key_conflict_on_import}) end,
-    Elements = dict:merge(ConflictFun, State#collect_state.elements, ImportedDefs#collect_state.elements),
-    Attributes = dict:merge(ConflictFun, State#collect_state.attributes, ImportedDefs#collect_state.attributes),
-    Groups = dict:merge(ConflictFun, State#collect_state.groups, ImportedDefs#collect_state.groups),
-    AttrGroups = dict:merge(ConflictFun, State#collect_state.attr_groups, ImportedDefs#collect_state.attr_groups),
-    Types = dict:merge(ConflictFun, State#collect_state.types, ImportedDefs#collect_state.types),
-    Directives = ImportedDefs#collect_state.includes_etc,
+    merge_collected_defs(State, ImportedDefs, ResolverForImported).
 
-    MergedState =
-        State#collect_state{elements    = Elements,
-                            attributes  = Attributes,
-                            groups      = Groups,
-                            attr_groups = AttrGroups,
-                            types       = Types},
-    {MergedState,Directives}.
+check_and_merge_include(IncludedTree, ResolverForIncluded, State) ->
+    {{xsd,"schema"}, InclAttrs, InclChildren} = IncludedTree,
+    ActualNS = attribute("namespace", InclAttrs, undefined),
+    IncluderNS = State#collect_state.targetNS,
+
+    Tree2 = case ActualNS of
+                NS when NS=:=IncluderNS ->
+                    IncludedTree;
+                undefined ->
+                    InclAttrs2 = [{{"","namespace"}, IncluderNS} | InclAttrs],
+                    {{xsd,"schema"}, InclAttrs2, InclChildren}
+            end,
+    IncludedDefs = collect_defs_schema_node(Tree2),
+    merge_collected_defs(State, IncludedDefs, ResolverForIncluded).
+
+merge_collected_defs(Main, ToAdd, ResolverFun) ->
+    ConflictFun = fun(_,_,_) -> error({key_conflict_on_import}) end,
+    Elements = dict:merge(ConflictFun, Main#collect_state.elements, ToAdd#collect_state.elements),
+    Attributes = dict:merge(ConflictFun, Main#collect_state.attributes, ToAdd#collect_state.attributes),
+    Groups = dict:merge(ConflictFun, Main#collect_state.groups, ToAdd#collect_state.groups),
+    AttrGroups = dict:merge(ConflictFun, Main#collect_state.attr_groups, ToAdd#collect_state.attr_groups),
+    Types = dict:merge(ConflictFun, Main#collect_state.types, ToAdd#collect_state.types),
+    Directives = [{D,ResolverFun} || D <- ToAdd#collect_state.includes_etc],
+
+    Merged =
+        Main#collect_state{elements    = Elements,
+                           attributes  = Attributes,
+                           groups      = Groups,
+                           attr_groups = AttrGroups,
+                           types       = Types},
+    {Merged,Directives}.
 
 check_namespace(#collect_state{targetNS=ActualNS}, ExpectedNS) ->
     case ExpectedNS of
