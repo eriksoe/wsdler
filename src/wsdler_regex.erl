@@ -182,20 +182,38 @@ is_digit(C) -> C >= $0 andalso C =< $9.
 
 %%% Parsing step 2: building the parse tree
 tokens_to_tree(Tokens) ->
-    Tokens2 = handle_grouping(Tokens),
-    Choices = handle_alternation(Tokens2),
-    make_choice([handle_concatenation_and_repetition(X) || X <- Choices]).
+    try
+        Tokens2 = handle_grouping(Tokens),
+        Choices = handle_alternation(Tokens2),
+        make_choice([handle_concatenation_and_repetition(X) || X <- Choices])
+    catch _:Err ->
+            error({regex_parsing_failed, Tokens, Err, erlang:get_stacktrace()})
+    end.
 
-handle_grouping([begin_group | Rest]) ->
-    case lists:splitwith(fun(T) -> T/=end_group end, Rest) of
-        {Group, [end_group|Rest2]} ->
-            [tokens_to_tree(Group) | handle_grouping(Rest2)];
-        {_GroupTree, []} ->
+handle_grouping(Tokens) ->
+    case handle_grouping2(Tokens) of
+        {Result,[]} -> Result;
+        {_, [end_group|_]} -> error('extra_)')
+    end.
+
+%%% handle_grouping2: Process groups until end or unmatched end_group
+handle_grouping2([]) ->
+    {[],[]};
+handle_grouping2([end_group|_]=Tokens) ->
+    {[], Tokens};
+handle_grouping2([begin_group|Tokens]) ->
+    case handle_grouping2(Tokens) of
+        {Group, [end_group|Tokens2]} ->
+            {Result,Remainder} = handle_grouping2(Tokens2),
+            {[tokens_to_tree(Group) | Result], Remainder};
+        {_Group,[]} ->
             error('missing_)')
     end;
-handle_grouping([]) -> [];
-handle_grouping([X | Rest]) ->
-    [X | handle_grouping(Rest)].
+handle_grouping2(Tokens) ->
+    {NormalTokens, Rest} = lists:splitwith(fun(T) -> T/=end_group andalso T/=begin_group end, Tokens),
+    {Result,Remainder} = handle_grouping2(Rest),
+    {NormalTokens ++ Result, Remainder}.
+
 
 handle_alternation(L) -> handle_alternation(L, []).
 handle_alternation(L, Acc) ->
@@ -371,4 +389,15 @@ precedence_concat_vs_choice_test() ->
 
     ok.
 
+nested_group_test() ->
+    %% TODO: Check results
+    Regex1 = "((0))",
+    from_string(Regex1),
+    Regex2 = "((0)(1))",
+    from_string(Regex2),
+    Regex3 = "((0))((1))",
+    from_string(Regex3),
+    Regex9 = "((((0[1-9]|1[0-9]|2[0-9]|3[0-1])(01|03|05|07|08|10|12))|((0[1-9]|1[0-9]|2[0-9]|30)(04|06|09|11))|((0[1-9]|1[0-9]|2[0-9])(02)))[0-9]{6})|0000000000|((4|5)([0-9]){9})|((38|39)(0[1-9]|10|11|12)[0-9]{6})",
+    from_string(Regex9),
+    ok.
 -endif.
