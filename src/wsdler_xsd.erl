@@ -302,11 +302,19 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
             end;
         {{{xsd, "include"}, Attrs, []}, ResolverFun} ->
             SchemaLocation = attribute("schemaLocation", Attrs),
-            {IncludedTree,ResolverForIncluded} =
-                ResolverFun(include, SchemaLocation),
-            {State2,MoreDirectives} = check_and_merge_include(IncludedTree, ResolverForIncluded, State),
-            NSSet2 = NSSet,
-            Rest2 = MoreDirectives ++ Rest
+            Key = {inclusion_into,State#collect_state.targetNS, erlang:fun_info(ResolverFun), SchemaLocation},
+            case dict:is_key(Key, NSSet) of
+                true -> % Already included
+                    NSSet2 = NSSet,
+                    Rest2  = Rest,
+                    State2 = State;
+                false ->
+                    NSSet2 = dict:store(Key, dummy, NSSet),
+                    {IncludedTree,ResolverForIncluded} =
+                        ResolverFun(include, SchemaLocation),
+                    {State2,MoreDirectives} = check_and_merge_include(IncludedTree, ResolverForIncluded, State),
+                    Rest2 = MoreDirectives ++ Rest
+            end
             %% TODO: Handle redefine
     end,
     handle_imports_until_fixedpoint(State2, Rest2, NSSet2).
@@ -332,7 +340,9 @@ check_and_merge_include(IncludedTree, ResolverForIncluded, State) ->
     merge_collected_defs(State, IncludedDefs, ResolverForIncluded).
 
 merge_collected_defs(Main, ToAdd, ResolverFun) ->
-    ConflictFun = fun(_,_,_) -> error({key_conflict_on_import}) end,
+    ConflictFun = fun (Key,V1,V2) -> error({key_conflict_on_import,
+                                            [{key,Key}, {value1, V1}, {value2,V2}]})
+                  end,
     Elements = dict:merge(ConflictFun, Main#collect_state.elements, ToAdd#collect_state.elements),
     Attributes = dict:merge(ConflictFun, Main#collect_state.attributes, ToAdd#collect_state.attributes),
     Groups = dict:merge(ConflictFun, Main#collect_state.groups, ToAdd#collect_state.groups),
