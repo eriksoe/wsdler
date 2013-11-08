@@ -465,15 +465,45 @@ handle_inheritance(#schema{types=Types, type_order=TypeOrder}=State) ->
     OldTypesList = lists:map(fun(TypeKey) ->
                                      {TypeKey,dict:fetch(TypeKey, Types)} end,
                              TypeOrder),
-    NewTypesList = lists:foldl(fun({TypeKey,Type},TypesAcc) ->
-                                       Type2 = handle_type_inheritance(Type, TypesAcc),
-                                       [{TypeKey,Type2} | TypesAcc]
-                             end,
-                             [],
-                             OldTypesList),
-    NewTypes = dict:from_list(NewTypesList),
+    NewTypes = lists:foldl(fun({TypeKey,Type},TypesAcc) ->
+                                   Type2 = handle_type_inheritance(TypeKey, Type, TypesAcc),
+                                   dict:store(TypeKey,Type2, TypesAcc)
+                           end,
+                           dict:new(),
+                           OldTypesList),
     %% TODO: In type order, calc primitive_type.
     State#schema{types=NewTypes}.
 
-handle_type_inheritance(Type, _TypeDict) ->
-    Type.
+handle_type_inheritance(TypeKey, Type, BaseTypeDict) ->
+    case Type of
+        #simpleType{type=#restriction{base=BaseKey}=Restriction} ->
+            case is_primitive_type(TypeKey) of
+                {yes, PrimType} -> ok;
+                no -> PrimType = try primitive_type_of(BaseKey, BaseTypeDict) catch _:_ -> 'BAD' end % TODO - temporary catch
+            end,
+            %% TODO: Compute sum of restrictions
+            NewRestriction = Restriction#restriction{
+                               primitive=PrimType % Inherited
+                              },
+            Type#simpleType{type=NewRestriction};
+        #simpleType{} -> Type; % List or union type
+        #complexType{} -> Type
+    end.
+
+primitive_type_of(TypeKey, TypeDict) ->
+    case dict:fetch(TypeKey, TypeDict) of
+        #simpleType{type=#restriction{primitive=PrimType}} when PrimType /= undefined ->
+            PrimType
+    end.
+
+is_primitive_type({xsd,Name}) ->
+    case lists:member(Name,
+                      ["string", "boolean", "decimal", "date", "dateTime"])
+        of
+        true  -> {yes, list_to_atom(Name)};
+        false -> no
+    end;
+is_primitive_type(_) ->
+    no.
+
+
