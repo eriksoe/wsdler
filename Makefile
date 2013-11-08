@@ -7,6 +7,9 @@ setup:
 test:
 	./rebar eunit skip_deps=true </dev/null
 
+test.suite.%:
+	./rebar eunit skip_deps=true suites=$* </dev/null
+
 dialyze: compile
 	dialyzer -q -n ebin
 
