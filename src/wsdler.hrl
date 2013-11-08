@@ -16,7 +16,8 @@
 
 %% Simpletype choices:
 -record(restriction,
-        {base,
+        {primitive=undefined,
+         base,
          pattern=undefined :: undefined | and_or_tree(string()),
          enumeration=[],
          minLength=undefined,

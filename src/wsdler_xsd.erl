@@ -117,7 +117,7 @@ parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode, ResolverFun)
     %% 4. Convert from XML to internal representation.
     %%    Check references simultaneously.
 
-    Schema = wsdler_xsd_conversion:convert_to_internal_form(State3),
+    State4 = wsdler_xsd_conversion:convert_to_internal_form(State3),
 %%    debug4(Schema),
 
     %% 5. Make inferences.
@@ -125,6 +125,8 @@ parse_schema_node({{xsd,"schema"}, _, _}=SchemaNode, ResolverFun)
     %%      - Determine basic-types.
     %%      - Determine joint restrictions.
     %% TODO
+    Schema = handle_inheritance(State4),
+
     Schema.
 
 
@@ -455,3 +457,23 @@ base_type_of({{xsd, "complexType"}, _Attrs, Children}) ->
     end;
 base_type_of(Other) -> error({incomplete, base_type_of, Other}).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% Phase 5: Handle inheritance %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+handle_inheritance(#schema{types=Types, type_order=TypeOrder}=State) ->
+    OldTypesList = lists:map(fun(TypeKey) ->
+                                     {TypeKey,dict:fetch(TypeKey, Types)} end,
+                             TypeOrder),
+    NewTypesList = lists:foldl(fun({TypeKey,Type},TypesAcc) ->
+                                       Type2 = handle_type_inheritance(Type, TypesAcc),
+                                       [{TypeKey,Type2} | TypesAcc]
+                             end,
+                             [],
+                             OldTypesList),
+    NewTypes = dict:from_list(NewTypesList),
+    %% TODO: In type order, calc primitive_type.
+    State#schema{types=NewTypes}.
+
+handle_type_inheritance(Type, _TypeDict) ->
+    Type.
