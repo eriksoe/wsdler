@@ -2,7 +2,6 @@
 XSD:
 - Type-annotations (and "dialyzer" Makefile target)
 - Fix test sample files which are invalid or incomplete. (see blacklist)
-- Compute type properties after inheritance.
 - Handle schema attr.s elementFormDefault and attributeFormDefault
   (see e.g. test-data-22.xsd)
 
@@ -14,7 +13,7 @@ XSD:
 == Milestone: xml-lint tests succeed for randomly generated schemas.
 
 ==== DOING ====
-"include" support (eriksoe)
+- Compute type properties after inheritance. (eriksoe)
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
@@ -35,3 +34,4 @@ XSD:
   - Introduce 'wsdler_xsd_conversion'.
 - Tests of XSD consistency errors. (eriksoe)
 - Handle import. (eriksoe)
+- "include" support (eriksoe)
