@@ -8,13 +8,16 @@
 -type(qname() :: {namespace(), ncname()}).
 
 -type(erlsom_dom() :: {_,[_],[_]}).
+-type(and_or_tree(T) :: T
+                      | {'and', and_or_tree(T), and_or_tree(T)}
+                      | {'or', and_or_tree(T), and_or_tree(T)}).
 
 %%%========== Simple-type related: ========================================
 
 %% Simpletype choices:
 -record(restriction,
         {base,
-         pattern=undefined,
+         pattern=undefined :: undefined | and_or_tree(string()),
          enumeration=[],
          minLength=undefined,
          maxLength=undefined,

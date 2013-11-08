@@ -140,9 +140,13 @@ process_restriction_children(Base, Children, State)->
 process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#restriction{enumeration=[EnumValue | EVs]};
-process_restriction_child({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=undefined}=R) ->
+process_restriction_child({{xsd, "pattern"}, Attrs, _Children}, #restriction{pattern=OldPatterns}=R) ->
     Pattern = attribute("value", Attrs),
-    R#restriction{pattern=Pattern};
+    NewPatterns = case OldPatterns of
+                      undefined -> Pattern;
+                      _ -> {'or', OldPatterns, Pattern}
+                  end,
+    R#restriction{pattern=NewPatterns};
 process_restriction_child({{xsd, "minLength"}, Attrs, _Children}, #restriction{minLength=undefined}=R) ->
     Length = list_to_integer(attribute("value", Attrs)),
     R#restriction{minLength=Length};
