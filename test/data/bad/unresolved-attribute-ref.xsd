@@ -1,5 +1,5 @@
 <!-- Unresolved attribute.ref
-        Expected: {unresolved_attribute, {undefined,"country"}, [{"http://url/", "xyz"}]}
+        Expected: {unresolved_attribute, {no_ns,"country"}, [{"http://url/", "xyz"}]}
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             targetNamespace="http://url/">

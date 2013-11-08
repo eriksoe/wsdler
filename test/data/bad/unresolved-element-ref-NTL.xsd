@@ -1,5 +1,5 @@
 <!-- Unresolved element.ref
-        Expected: {unresolved_element, {undefined,"items"}, []}
+        Expected: {unresolved_element, {no_ns,"items"}, []}
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             targetNamespace="http://url/">

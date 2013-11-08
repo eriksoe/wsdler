@@ -1,5 +1,5 @@
 <!-- Unresolved attribute.ref (non-top-level attribute exists)
-        Expected: {unresolved_attribute, {undefined,"lingo"}, []}
+        Expected: {unresolved_attribute, {no_ns,"lingo"}, []}
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             targetNamespace="http://url/">

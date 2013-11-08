@@ -1,5 +1,5 @@
 <!-- Unresolved element.type
-        Expected: {unresolved_type_reference, {undefined,"Items"}, [{"http://url/", "PurchaseOrderType"}]}
+        Expected: {unresolved_type_reference, {no_ns,"Items"}, [{"http://url/", "PurchaseOrderType"}]}
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
             targetNamespace="http://url/">
