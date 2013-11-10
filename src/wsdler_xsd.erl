@@ -146,7 +146,7 @@ debug4(Schema) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 collect_defs_schema_node({{xsd,"schema"}, Attrs, _Children}=E) ->
-    TargetNS = wsdler_xml:attribute("targetNamespace", Attrs, no_ns),
+    TargetNS = translate_namespace_uri(wsdler_xml:attribute("targetNamespace", Attrs, no_ns)),
     InitState = #collect_state{elements    = dict:new(),
                                attributes  = dict:new(),
                                groups      = dict:new(),
@@ -277,7 +277,7 @@ handle_imports(State=#collect_state{includes_etc=Directives}, ResolverFun) ->
     ImplicitInclude1 = {{xsd, "import"},
                         [{{"","namespace"}, ?XML_NS}], []},
     ImplicitInclude2 = {{xsd, "import"},
-                        [{{"","namespace"}, {synthetic,?XSD_NS}}], []},
+                        [{{"","namespace"}, {synthetic,xsd}}], []},
     Directives2 = [{ImplicitInclude1, ImplicitsResolverFun},
                    {ImplicitInclude2, ImplicitsResolverFun}]
         ++ [{D, ResolverFun} || D <- Directives],
@@ -288,7 +288,7 @@ handle_imports_until_fixedpoint(State, [], _NSSet) ->
 handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
     case Directive of
         {{{xsd, "import"}, Attrs, []}, ResolverFun} ->
-            Namespace = attribute("namespace", Attrs),
+            Namespace = translate_namespace_uri(attribute("namespace", Attrs)),
             case dict:is_key(Namespace, NSSet) of
                 true -> % Already imported
                     NSSet2 = NSSet,
@@ -370,7 +370,7 @@ check_namespace(#collect_state{targetNS=ActualNS}, ExpectedNS) ->
 implicit_imports_resolver(?XML_NS, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xml.xsd"),
     {file_to_tree(FileName), dummy};
-implicit_imports_resolver({synthetic,?XSD_NS}, _Path) ->
+implicit_imports_resolver({synthetic,xsd}, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xsd-types.xsd"),
     {file_to_tree(FileName), dummy}.
 
@@ -402,8 +402,8 @@ build_type_order(#collect_state{}=State) ->
 
 check_type_references(no_base, State) ->
     State;
-check_type_references({xsd, _}, State) ->
-    %% A built-in type.  Existence assumed.
+check_type_references({xsd,"anySimpleType"}, State) ->
+    %% Implicit root type for all simple types.
     State;
 check_type_references(Key, {TypeDict, TypeStates, Acc}=State) ->
     case dict:find(Key, TypeStates) of
@@ -472,7 +472,6 @@ handle_inheritance(#schema{types=Types, type_order=TypeOrder}=State) ->
                            end,
                            dict:new(),
                            OldTypesList),
-    %% TODO: In type order, calc primitive_type.
     State#schema{types=NewTypes}.
 
 handle_type_inheritance(TypeKey, Type, BaseTypeDict) ->
@@ -480,7 +479,7 @@ handle_type_inheritance(TypeKey, Type, BaseTypeDict) ->
         #simpleType{type=#restriction{base=BaseKey}=Restriction} ->
             case is_primitive_type(TypeKey) of
                 {yes, PrimType} -> ok;
-                no -> PrimType = try primitive_type_of(BaseKey, BaseTypeDict) catch _:_ -> 'BAD' end % TODO - temporary catch
+                no -> PrimType = primitive_type_of(BaseKey, BaseTypeDict)
             end,
             %% TODO: Compute sum of restrictions
             NewRestriction = Restriction#restriction{
@@ -492,15 +491,28 @@ handle_type_inheritance(TypeKey, Type, BaseTypeDict) ->
     end.
 
 primitive_type_of(TypeKey, TypeDict) ->
-    case dict:fetch(TypeKey, TypeDict) of
-        #simpleType{type=#restriction{primitive=PrimType}} when PrimType /= undefined ->
-            PrimType
+    case dict:find(TypeKey, TypeDict) of
+        {ok,#simpleType{type=#restriction{primitive=PrimType}}} when PrimType /= undefined ->
+            PrimType;
+        {ok,#simpleType{type=#simpleListType{}}} ->
+            list;
+        {ok,#simpleType{type=#simpleUnionType{}}} ->
+            union;
+        error ->
+            error({"primitive_type_of(~p): type not found among ~p (is_prim=~p)",
+                   [TypeKey, dict:fetch_keys(TypeDict), is_primitive_type(TypeKey)]})
     end.
 
 is_primitive_type({xsd,Name}) ->
     case lists:member(Name,
-                      ["string", "boolean", "decimal", "date", "dateTime"])
-        of
+                      ["anySimpleType",
+                       "string", "boolean",
+                       "decimal", "double", "float",
+                       "hexBinary", "base64Binary",
+                       "NOTATION", "QName", "anyURI",
+                       "duration", "dateTime", "date", "time",
+                       "gDay", "gMonth", "gYear", "gMonthDay", "gYearMonth"])
+    of
         true  -> {yes, list_to_atom(Name)};
         false -> no
     end;
@@ -508,3 +520,5 @@ is_primitive_type(_) ->
     no.
 
 
+translate_namespace_uri(?XSD_NS) -> xsd;
+translate_namespace_uri(NS) -> NS.
