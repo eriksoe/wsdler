@@ -384,10 +384,11 @@ merge_import(ImportedTree, ResolverForImported, Namespace, State) ->
 
 build_type_order(#collect_state{}=State) ->
     TypeDict = State#collect_state.types,
-    {_,_,TypeOrder} =
+    {_,_,RevTypeOrder} =
         lists:foldl(fun check_type_references/2,
                     {TypeDict, dict:new(), []},
                     dict:fetch_keys(TypeDict)),
+    TypeOrder = lists:reverse(RevTypeOrder),
     %% TODO: Check other references.
     #refcheck_state{
                elements    = State#collect_state.elements,
