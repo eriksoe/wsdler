@@ -14,6 +14,7 @@ XSD:
 
 ==== DOING ====
 - Compute type properties after inheritance. (eriksoe)
+  - Restrictions
 
 ==== DONE: ====
 - _wsdl: split into _xml (DOM parsing) and rest.
@@ -35,3 +36,5 @@ XSD:
 - Tests of XSD consistency errors. (eriksoe)
 - Handle import. (eriksoe)
 - "include" support (eriksoe)
+- Compute type properties after inheritance.
+  - Primitive type (eriksoe)

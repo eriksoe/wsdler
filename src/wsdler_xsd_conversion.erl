@@ -112,7 +112,9 @@ process_simpleType_child({{xsd,"restriction"}, Attrs, Children}, State) ->
         {Base, _} when Base /= undefined ->
             RestChildren = Children
     end,
-    process_restriction_children(Base, RestChildren, State);
+    Restriction = process_restriction_children(RestChildren, State),
+    #simpleDerivedType{base=check_type_existence(Base, State),
+                       restriction=Restriction};
 process_simpleType_child({{xsd,"list"}, Attrs, Children}, State) ->
     ItemType = case {attribute("itemType", Attrs, undefined), Children} of
                    {IT, []} when IT /= undefined ->
@@ -133,10 +135,10 @@ process_simpleType_child({{xsd,"union"}, Attrs, Children}, State) ->
     #simpleUnionType{memberTypes=MemberTypes}.
 
 
-process_restriction_children(Base, Children, State)->
-        lists:foldl(fun process_restriction_child/2,
-                    #restriction{base=check_type_existence(Base, State)},
-                    Children).
+process_restriction_children(Children, State)->
+    lists:foldl(fun process_restriction_child/2,
+                #restriction{},
+                Children).
 process_restriction_child({{xsd, "enumeration"}, Attrs, _Children}, #restriction{enumeration=EVs}=R) ->
     EnumValue = attribute("value", Attrs),
     R#restriction{enumeration=[EnumValue | EVs]};

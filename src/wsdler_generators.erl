@@ -104,19 +104,27 @@ generate_simpleType(Key, Schema) ->
     ?LET({simple,V}, generate_type(Key,Schema),
          V).
 
-generate_simpleType(#restriction{enumeration=Enum}) when Enum /= [] ->
+generate_simpleType(#simplePrimitiveDerivedType{
+                       restriction=#restriction{enumeration=Enum}
+                      }) when Enum /= [] ->
     oneof([return(X) || X <- Enum]);
-generate_simpleType(#restriction{base={xsd,"boolean"}}) ->
+generate_simpleType(#simplePrimitiveDerivedType{primitive=boolean}) ->
     oneof(["false","true","0","1"]);
-generate_simpleType(#restriction{base="dateTime"}) ->
+generate_simpleType(#simplePrimitiveDerivedType{primitive=dateTime}) ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and pattern
     ?LET(X, resize(5,real()),
          format_years_from_now_as_datetime(math:pow(X,7)));
-generate_simpleType(#restriction{base={xsd, "string"}, pattern=Pattern}) when Pattern /= undefined ->
+generate_simpleType(#simplePrimitiveDerivedType{
+                       primitive=string,
+                       restriction=#restriction{pattern=Pattern}
+                      }) when Pattern /= undefined ->
     %% TODO: Obey facets: min/max-Inclusive/Exclusive, and minLength/maxLength
     Regex = wsdler_regex:from_string(Pattern),
     wsdler_regex:to_generator(Regex);
-generate_simpleType(#restriction{base={xsd,"string"}, minLength=MinLen, maxLength=MaxLen}) ->
+generate_simpleType(#simplePrimitiveDerivedType{
+                       primitive=string,
+                       restriction=#restriction{minLength=MinLen, maxLength=MaxLen}
+                      }) ->
     string_gen(MinLen, MaxLen);
 generate_simpleType(#simpleUnionType{memberTypes=Types}) ->
     oneof([generate_simpleType(T) || T <- Types]);

@@ -17,7 +17,6 @@
 %% Simpletype choices:
 -record(restriction,
         {primitive=undefined,
-         base,
          pattern=undefined :: undefined | and_or_tree(string()),
          enumeration=[],
          minLength=undefined,
@@ -27,9 +26,14 @@
          fractionDigits=undefined,
          totalDigits=undefined
         }).
+-record(simpleDerivedType,  {base, restriction}).
+-record(simplePrimitiveDerivedType,  {primitive, restriction}).
 -record(simpleListType,  {itemType}).
 -record(simpleUnionType, {memberTypes}).
--type(simpleDerivation() :: #restriction{} | #simpleListType{} | #simpleUnionType{}).
+
+%%% #simpleDerivedType{} is internal; #simplePrimitiveDerivedType{} is
+%%% what's seen after XSD processing has completed.
+-type(simpleDerivation() :: #simpleDerivedType{} | #simplePrimitiveDerivedType{} | #simpleListType{} | #simpleUnionType{}).
 
 -record(simpleType, {type :: {named,_} | simpleDerivation()}).
 

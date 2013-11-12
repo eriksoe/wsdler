@@ -476,23 +476,26 @@ handle_inheritance(#schema{types=Types, type_order=TypeOrder}=State) ->
 
 handle_type_inheritance(TypeKey, Type, BaseTypeDict) ->
     case Type of
-        #simpleType{type=#restriction{base=BaseKey}=Restriction} ->
+        #simpleType{type=#simpleDerivedType{base=BaseKey, restriction=Restriction}} ->
             case is_primitive_type(TypeKey) of
                 {yes, PrimType} -> ok;
                 no -> PrimType = primitive_type_of(BaseKey, BaseTypeDict)
             end,
             %% TODO: Compute sum of restrictions
-            NewRestriction = Restriction#restriction{
-                               primitive=PrimType % Inherited
-                              },
-            Type#simpleType{type=NewRestriction};
+            NewRestriction = Restriction,
+            Type#simpleType{
+              type=#simplePrimitiveDerivedType{
+                primitive=PrimType,
+                restriction=NewRestriction
+               }
+             };
         #simpleType{} -> Type; % List or union type
         #complexType{} -> Type
     end.
 
 primitive_type_of(TypeKey, TypeDict) ->
     case dict:find(TypeKey, TypeDict) of
-        {ok,#simpleType{type=#restriction{primitive=PrimType}}} when PrimType /= undefined ->
+        {ok,#simpleType{type=#simplePrimitiveDerivedType{primitive=PrimType}}} when PrimType /= undefined ->
             PrimType;
         {ok,#simpleType{type=#simpleListType{}}} ->
             list;
