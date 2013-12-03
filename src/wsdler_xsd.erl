@@ -347,6 +347,7 @@ merge_collected_defs(Main, ToAdd, ResolverFun) ->
                              true ->
                                   error({key_conflict_on_import,
                                          [{key,Key}, {value1, V1}, {value2,V2}]})
+                          end
                   end,
     Elements = dict:merge(ConflictFun, Main#collect_state.elements, ToAdd#collect_state.elements),
     Attributes = dict:merge(ConflictFun, Main#collect_state.attributes, ToAdd#collect_state.attributes),
