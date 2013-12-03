@@ -20,7 +20,8 @@
 parse_file(FileName) ->
     {ok, Here} = file:get_cwd(),
     ResolverFun0 = file_resolver(Here),
-    {Tree, ResolverFun} = ResolverFun0(dummy,FileName),
+    {XML, ResolverFun} = ResolverFun0(dummy,FileName),
+    Tree = xml_to_tree(XML),
     Types = parse_schema_node(Tree, ResolverFun),
     {ok, Types}.
 
@@ -38,12 +39,12 @@ file_resolver(FileName) ->
                       [OrgAbsName, Path, _NS]),
             %% TODO: Check relativeness of path
             AbsIncluded = filename:absname_join(OrgAbsName, Path),
-            {file_to_tree(AbsIncluded), file_resolver(filename:dirname(AbsIncluded))}
+            {file_to_xml(AbsIncluded), file_resolver(filename:dirname(AbsIncluded))}
     end.
 
-file_to_tree(FileName) ->
+file_to_xml(FileName) ->
     {ok,Text} = file:read_file(FileName),
-    xml_to_tree(Text).
+    Text.
 
 xml_to_tree(XMLText) ->
     {ok,XMLTree} = wsdler_xml:parse_string(XMLText),
@@ -297,8 +298,9 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
                 false -> % Do import
                     NSSet2 = dict:store(Namespace, dummy, NSSet),
                     SchemaLocation = attribute("schemaLocation", Attrs, undefined),
-                    {ImportedTree,ResolverForImported} =
+                    {ImportedXML,ResolverForImported} =
                         ResolverFun(Namespace, SchemaLocation),
+                    ImportedTree = xml_to_tree(ImportedXML),
                     {State2,MoreDirectives} = check_and_merge_import(ImportedTree, ResolverForImported, Namespace, State),
                     Rest2 = MoreDirectives ++ Rest
             end;
@@ -311,11 +313,22 @@ handle_imports_until_fixedpoint(State, [Directive | Rest], NSSet) ->
                     Rest2  = Rest,
                     State2 = State;
                 false ->
-                    NSSet2 = dict:store(Key, dummy, NSSet),
-                    {IncludedTree,ResolverForIncluded} =
+                    {IncludedXML,ResolverForIncluded} =
                         ResolverFun(include, SchemaLocation),
-                    {State2,MoreDirectives} = check_and_merge_include(IncludedTree, ResolverForIncluded, State),
-                    Rest2 = MoreDirectives ++ Rest
+                    XMLHash = crypto:sha(IncludedXML),
+                    Key2 = {inclusion_into,State#collect_state.targetNS, xml_hash, XMLHash},
+                    case dict:is_key(Key2, NSSet) of
+                        true -> % Already included
+                            NSSet2 = NSSet,
+                            Rest2  = Rest,
+                            State2 = State;
+                        false ->
+                            IncludedTree = xml_to_tree(IncludedXML),
+                            {State2,MoreDirectives} = check_and_merge_include(IncludedTree, ResolverForIncluded, State),
+                            NSSet2 = dict:store(Key, dummy,
+                                                dict:store(Key2, dummy, NSSet)),
+                            Rest2 = MoreDirectives ++ Rest
+                    end
             end
             %% TODO: Handle redefine
     end,
@@ -373,10 +386,10 @@ check_namespace(#collect_state{targetNS=ActualNS}, ExpectedNS) ->
 
 implicit_imports_resolver(?XML_NS, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xml.xsd"),
-    {file_to_tree(FileName), dummy};
+    {file_to_xml(FileName), dummy};
 implicit_imports_resolver({synthetic,xsd}, _Path) ->
     FileName = filename:join(code:priv_dir(wsdler), "xsd-types.xsd"),
-    {file_to_tree(FileName), dummy}.
+    {file_to_xml(FileName), dummy}.
 
 merge_import(ImportedTree, ResolverForImported, Namespace, State) ->
     %% TODO!
