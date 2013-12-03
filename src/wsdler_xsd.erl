@@ -342,8 +342,11 @@ check_and_merge_include(IncludedTree, ResolverForIncluded, State) ->
     merge_collected_defs(State, IncludedDefs, ResolverForIncluded).
 
 merge_collected_defs(Main, ToAdd, ResolverFun) ->
-    ConflictFun = fun (Key,V1,V2) -> error({key_conflict_on_import,
-                                            [{key,Key}, {value1, V1}, {value2,V2}]})
+    ConflictFun = fun (Key,V1,V2) ->
+                          if V1=:=V2 -> V1;
+                             true ->
+                                  error({key_conflict_on_import,
+                                         [{key,Key}, {value1, V1}, {value2,V2}]})
                   end,
     Elements = dict:merge(ConflictFun, Main#collect_state.elements, ToAdd#collect_state.elements),
     Attributes = dict:merge(ConflictFun, Main#collect_state.attributes, ToAdd#collect_state.attributes),
